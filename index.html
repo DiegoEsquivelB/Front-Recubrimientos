@@ -1,0 +1,53 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel principal | Recubrimientos Diego S.A</title>
+  <link rel="stylesheet" href="assets/css/estilos.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" data-sidebar>
+      <a class="brand" href="index.html"><span class="brand__mark">R</span><span>Recubrimientos Diego S.A</span></a>
+      <nav class="menu" aria-label="Navegación principal">
+        <a class="menu__link" href="index.html"><span>⌂</span> Panel principal</a>
+        <p class="menu__label">Administración</p>
+        <a class="menu__link" href="modulos/clientes.html"><span>♙</span> Clientes</a>
+        <a class="menu__link" href="modulos/proyectos.html"><span>▣</span> Proyectos</a>
+        <a class="menu__link" href="modulos/calculo-materiales.html"><span>◈</span> Cálculo de materiales</a>
+        <p class="menu__label">Recursos</p>
+        <a class="menu__link" href="modulos/inventario.html"><span>▤</span> Inventario</a>
+        <a class="menu__link" href="modulos/materiales.html"><span>◐</span> Materiales</a>
+        <a class="menu__link" href="modulos/reportes.html"><span>▥</span> Reportes</a>
+        <p class="menu__label">Configuración</p>
+        <a class="menu__link" href="modulos/usuarios.html"><span>⚙</span> Usuarios</a>
+      </nav>
+      <a class="menu__link menu__logout" href="login.html"><span>↪</span> Cerrar sesión</a>
+    </aside>
+    <main class="main-content">
+      <header class="topbar">
+        <button class="icon-button sidebar-toggle" type="button" data-sidebar-toggle aria-label="Abrir menú">☰</button>
+        <div><p class="topbar__date" data-current-date></p></div>
+        <button class="user-menu" type="button"><span class="avatar">DE</span><span><strong>Diego Esquivel</strong><small>Administrador</small></span></button>
+      </header>
+      <section class="page-content">
+        <div class="page-heading"><div><p class="eyebrow">Resumen general</p><h1>Panel principal</h1><p class="muted">Visualice el estado actual de la operación.</p></div><a class="button button--primary" href="modulos/proyectos.html">+ Nuevo proyecto</a></div>
+        <section class="metric-grid" aria-label="Indicadores principales">
+          <article class="metric-card"><span class="metric-card__icon metric-card__icon--blue">♙</span><div><p>Clientes activos</p><strong>0</strong><small>Sin registros aún</small></div></article>
+          <article class="metric-card"><span class="metric-card__icon metric-card__icon--orange">▣</span><div><p>Proyectos en proceso</p><strong>0</strong><small>Sin registros aún</small></div></article>
+          <article class="metric-card"><span class="metric-card__icon metric-card__icon--green">▤</span><div><p>Materiales disponibles</p><strong>0</strong><small>Sin registros aún</small></div></article>
+          <article class="metric-card"><span class="metric-card__icon metric-card__icon--red">!</span><div><p>Alertas de inventario</p><strong>0</strong><small>Todo en orden</small></div></article>
+        </section>
+        <section class="content-grid content-grid--two">
+          <article class="panel"><div class="panel__header"><div><h2>Proyectos recientes</h2><p>Últimos proyectos registrados.</p></div><a href="modulos/proyectos.html">Ver todos</a></div><div class="empty-state"><span>▣</span><h3>Aún no hay proyectos</h3><p>Registre su primer proyecto para iniciar el seguimiento.</p><a class="button button--secondary" href="modulos/proyectos.html">Registrar proyecto</a></div></article>
+          <article class="panel"><div class="panel__header"><div><h2>Acciones rápidas</h2><p>Accesos directos a las tareas frecuentes.</p></div></div><div class="quick-actions"><a href="modulos/clientes.html">♙ <span><strong>Registrar cliente</strong><small>Agregue un nuevo cliente</small></span></a><a href="modulos/inventario.html">▤ <span><strong>Movimiento de inventario</strong><small>Registre entradas o salidas</small></span></a><a href="modulos/calculo-materiales.html">◈ <span><strong>Calcular materiales</strong><small>Estime el consumo de un proyecto</small></span></a><a href="modulos/reportes.html">▥ <span><strong>Generar reporte</strong><small>Consulte la información del negocio</small></span></a></div></article>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div class="toast-container" aria-live="polite"></div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
+
