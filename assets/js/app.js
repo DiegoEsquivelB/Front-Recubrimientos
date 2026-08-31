@@ -3,23 +3,51 @@ const API_CONFIG = {
   tokenKey: 'recubrimientos_token'
 };
 
-window.API_CONFIG = API_CONFIG;
+const browserWindow = typeof window !== 'undefined' ? window : globalThis;
+if (browserWindow) {
+  browserWindow.API_CONFIG = API_CONFIG;
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-  setCurrentDate();
-  setActiveNavigation();
-  setSidebarControls();
-  setPasswordToggle();
-  setStandardForms();
-  setTableSearches();
-  setCalculator();
-  setReportForm();
-  setDefaultDate();
-  loadDashboardData();
-  loadCrudLists();
-  setupClienteModal();
-  setupMaterialModal();
-});
+function getLoginErrorMessage(error) {
+  const rawMessage = error && typeof error.message === 'string' ? error.message : '';
+  const normalized = String(rawMessage || '').trim();
+  const lowerMessage = normalizeErrorText(normalized);
+
+  if (!normalized) return 'Credenciales inválidas. Verifique su usuario y contraseña.';
+
+  if (/(unauthorized|invalid credentials|credenciales invalid|usuario o contrasena|usuario o contraseña|wrong password|bad credentials|not authorized|401|403)/i.test(lowerMessage)) {
+    return 'Credenciales inválidas. Verifique su usuario y contraseña.';
+  }
+
+  if (/(email|usuario|contrasena|password)/i.test(lowerMessage)) {
+    return 'Credenciales inválidas. Verifique su usuario y contraseña.';
+  }
+
+  return normalized;
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setCurrentDate();
+    setActiveNavigation();
+    setSidebarControls();
+    setPasswordToggle();
+    setStandardForms();
+    setTableSearches();
+    setCalculator();
+    setReportForm();
+    setDefaultDate();
+    loadDashboardData();
+    loadCrudLists();
+    setupClienteModal();
+    setupMaterialModal();
+    setupInventoryModule();
+  });
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = { getLoginErrorMessage };
+}
 
 function setCurrentDate() {
   const dateElement = document.querySelector('[data-current-date]');
@@ -133,6 +161,14 @@ function setStandardForms() {
           const successMessage = response?.message || (isEditing ? 'Registro actualizado correctamente.' : 'Registro guardado correctamente.');
           showToast(successMessage, 'success');
 
+          if (endpoint === 'auth/login' && response?.user) {
+            const storage = payload.recordar ? localStorage : sessionStorage;
+            const sessionValue = JSON.stringify(response.user);
+            localStorage.removeItem(API_CONFIG.tokenKey);
+            sessionStorage.removeItem(API_CONFIG.tokenKey);
+            storage.setItem(API_CONFIG.tokenKey, sessionValue);
+          }
+
           if (form.dataset.redirect) {
             window.setTimeout(() => { window.location.href = form.dataset.redirect; }, 600);
           }
@@ -145,7 +181,20 @@ function setStandardForms() {
           await loadCrudLists();
           return;
         } catch (error) {
-          showToast(error.message || 'No se pudo conectar con la API.', 'error');
+          const loginErrorMessage = endpoint === 'auth/login' ? getLoginErrorMessage(error) : (error.message || 'No se pudo conectar con la API.');
+          showToast(loginErrorMessage, 'error');
+          if (endpoint === 'auth/login') {
+            const usuarioInput = form.querySelector('[name="usuario"]');
+            const passwordInput = form.querySelector('[name="contrasena"]');
+            const loginError = document.getElementById('login-error');
+            if (usuarioInput) usuarioInput.classList.add('is-invalid');
+            if (passwordInput) passwordInput.classList.add('is-invalid');
+            if (loginError) {
+              loginError.textContent = loginErrorMessage;
+              loginError.classList.add('is-visible');
+              loginError.style.display = 'block';
+            }
+          }
           return;
         }
       }
@@ -233,7 +282,7 @@ function resolveApiEndpoint(form) {
     'clientes.html': 'clientes',
     'proyectos.html': 'proyectos',
     'materiales.html': 'materiales',
-    'inventario.html': 'inventario',
+    'inventario.html': 'inventario/movimientos',
     'usuarios.html': 'usuarios'
   };
 
@@ -309,7 +358,11 @@ function displayValidationErrors(form) {
 function applyFieldError(form, fieldName, message) {
   const normalizedField = String(fieldName || '').trim();
   const input = form.querySelector(`[name="${normalizedField}"]`) || form.querySelector(`[name="${normalizedField.toLowerCase()}"]`);
-  const errorElement = document.getElementById(`error-${normalizedField}`) || document.getElementById(`error-${normalizedField.toLowerCase()}`);
+  const dashedField = normalizedField.replace(/_/g, '-');
+  const errorElement = document.getElementById(`error-${normalizedField}`)
+    || document.getElementById(`error-${normalizedField.toLowerCase()}`)
+    || document.getElementById(`error-${dashedField}`)
+    || document.getElementById(`error-${dashedField.toLowerCase()}`);
 
   if (input) {
     input.classList.add('is-invalid');
@@ -385,6 +438,18 @@ function handleFormError(error, form) {
   const normalizedMessage = String(responseMessage || fallbackMessage || 'Error desconocido');
   const lowerMessage = normalizeErrorText(normalizedMessage);
 
+  if ((/categoria/.test(lowerMessage)) && (/duplic|ya existe|existe|registrad|repet|ocupad/.test(lowerMessage))) {
+    applyFieldError(form, 'categoria_nombre', 'La categoría ya existe. Ingrese un nombre diferente.');
+    showToast('La categoría ya existe.', 'error');
+    return;
+  }
+
+  if ((/codigo|code/.test(lowerMessage)) && (/duplic|ya existe|existe|registrad|repet|ocupad/.test(lowerMessage))) {
+    applyFieldError(form, 'codigo', 'El código ya existe. Ingrese un código diferente.');
+    showToast('El código del material ya existe.', 'error');
+    return;
+  }
+
   if ((/dpi|identificacion|nit|cui|cedula/.test(lowerMessage)) && (/duplic|ya existe|existe|registrad|repet|ocupad/.test(lowerMessage))) {
     applyFieldError(form, 'identificacion', 'DPI duplicado o ya existe en la base de datos.');
     showToast('El DPI ya existe en la base de datos.', 'error');
@@ -410,7 +475,7 @@ async function apiRequest(endpoint, options = {}) {
     ...(options.headers || {})
   };
 
-  const token = localStorage.getItem(API_CONFIG.tokenKey);
+  const token = localStorage.getItem(API_CONFIG.tokenKey) || sessionStorage.getItem(API_CONFIG.tokenKey);
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -522,7 +587,7 @@ async function loadCrudLists() {
     'inventario.html': {
       endpoint: 'inventario',
       tableId: 'tabla-inventario',
-      emptyMessage: 'No hay movimientos registrados.'
+      emptyMessage: 'No hay existencias registradas.'
     },
     'usuarios.html': {
       endpoint: 'usuarios',
@@ -543,6 +608,10 @@ async function loadCrudLists() {
 
     if (!items.length) {
       renderEmptyTable(table, config.emptyMessage);
+      if (page === 'inventario.html') {
+        renderInventorySummary([]);
+        await loadInventoryMovements();
+      }
       return;
     }
 
@@ -592,6 +661,12 @@ async function loadCrudLists() {
       return;
     }
 
+    if (page === 'inventario.html') {
+      renderInventorySummary(items);
+      renderInventoryTable(table, items);
+      await loadInventoryMovements();
+      return;
+    }
     if (page === 'materiales.html') {
       table.querySelector('tbody').innerHTML = items.map((item) => {
         const record = JSON.stringify(item);
@@ -602,8 +677,10 @@ async function loadCrudLists() {
         const rendimiento = item.rendimiento ?? '—';
         const costo = item.costo ? `Q ${Number(item.costo).toFixed(2)}` : '—';
         const stockMinimo = item.stock_minimo ?? item.stockMinimo ?? '—';
+        const codigo = item.codigo || '—';
         return `
           <tr>
+            <td>${codigo}</td>
             <td>${nombre}</td>
             <td>${categoria}</td>
             <td>${unidad}</td>
@@ -790,18 +867,24 @@ function showClienteFicha(cliente) {
 
 function setupMaterialModal() {
   const btnAgregar = document.getElementById('btnAgregarMaterial');
-  if (!btnAgregar) return;
+  const btnCategorias = document.getElementById('btnEditarCategorias');
 
-  btnAgregar.addEventListener('click', () => {
+  if (btnAgregar) btnAgregar.addEventListener('click', () => {
     openMaterialModal();
   });
+
+  if (btnCategorias) btnCategorias.addEventListener('click', () => {
+    openMaterialCategoriesModal();
+  });
+
+  loadMaterialCategories();
 }
 
 function openMaterialEditModal(material, id, endpoint) {
   openMaterialModal(material, id, endpoint);
 }
 
-function openMaterialModal(material = null, id = '', endpoint = 'materiales') {
+async function openMaterialModal(material = null, id = '', endpoint = 'materiales') {
   const modal = document.getElementById('modalEditarMaterial');
   const form = document.getElementById('formEditarMaterial');
   if (!modal || !form) return;
@@ -813,7 +896,11 @@ function openMaterialModal(material = null, id = '', endpoint = 'materiales') {
   const titleModal = document.getElementById('modalEditarMaterialLabel');
   if (titleModal) titleModal.textContent = material ? 'Editar material' : 'Agregar nuevo material';
 
+  setupMaterialInitialInventory(form, !material);
+  await loadMaterialCategories(material ? material.categoria : '');
+
   if (material) {
+    form.querySelector('#modalMaterial-codigo').value = material.codigo || '';
     form.querySelector('#modalMaterial-nombre').value = material.nombre || '';
     form.querySelector('#modalMaterial-categoria').value = material.categoria || '';
     form.querySelector('#modalMaterial-unidad').value = material.unidad || '';
@@ -844,6 +931,12 @@ function openMaterialModal(material = null, id = '', endpoint = 'materiales') {
       }
 
       const isCreating = !materialId;
+      if (!isCreating) {
+        delete payload.registrar_inventario;
+        delete payload.stock_inicial;
+        delete payload.referencia_inventario;
+      }
+
       const requestUrl = isCreating ? endpoint : `${endpoint}/${materialId}`;
       const method = isCreating ? 'POST' : 'PUT';
 
@@ -860,6 +953,126 @@ function openMaterialModal(material = null, id = '', endpoint = 'materiales') {
       setTimeout(() => {
         loadCrudLists();
       }, 300);
+    } catch (error) {
+      handleFormError(error, form);
+    }
+  };
+
+  const bootstrapModal = new bootstrap.Modal(modal);
+  bootstrapModal.show();
+}
+
+async function loadMaterialCategories(selectedValue = '') {
+  const select = document.getElementById('modalMaterial-categoria');
+  const categorySelect = document.getElementById('categoriaMaterial-lista');
+  if (!select && !categorySelect) return [];
+
+  try {
+    const categories = await apiRequest('materiales/categorias');
+    const options = categories.map((category) => `<option value="${escapeAttribute(category.nombre)}">${category.nombre}</option>`).join('');
+
+    if (select) {
+      const currentValue = selectedValue || select.value;
+      select.innerHTML = `<option value="">Seleccione una categoría</option>${options}`;
+      if (currentValue) select.value = currentValue;
+    }
+
+    if (categorySelect) {
+      categorySelect.innerHTML = '<option value="">Nueva categoría</option>' + categories
+        .map((category) => `<option value="${category.id}" data-nombre="${escapeAttribute(category.nombre)}">${category.nombre}</option>`)
+        .join('');
+    }
+
+    return categories;
+  } catch (error) {
+    showToast(error.message || 'No se pudieron cargar las categorías.', 'error');
+    return [];
+  }
+}
+
+function setupMaterialInitialInventory(form, canRegisterInventory) {
+  const container = form.querySelector('[data-inventory-initial]');
+  const fields = form.querySelector('[data-inventory-initial-fields]');
+  const checkbox = form.querySelector('#modalMaterial-registrarInventario');
+  const quantity = form.querySelector('#modalMaterial-stockInicial');
+  const reference = form.querySelector('#modalMaterial-referenciaInventario');
+  if (!container || !fields || !checkbox || !quantity) return;
+
+  container.hidden = !canRegisterInventory;
+  checkbox.checked = false;
+  quantity.value = '';
+  quantity.required = false;
+  fields.hidden = true;
+  if (reference) reference.value = '';
+
+  checkbox.onchange = () => {
+    const enabled = checkbox.checked;
+    fields.hidden = !enabled;
+    quantity.required = enabled;
+    if (!enabled) {
+      quantity.value = '';
+      if (reference) reference.value = '';
+    }
+  };
+}
+
+async function openMaterialCategoriesModal() {
+  const modal = document.getElementById('modalCategoriasMaterial');
+  const form = document.getElementById('formCategoriasMaterial');
+  const select = document.getElementById('categoriaMaterial-lista');
+  const input = document.getElementById('categoriaMaterial-nombre');
+  const btnGuardar = document.getElementById('btnGuardarCategoria');
+  const btnEliminar = document.getElementById('btnEliminarCategoria');
+  if (!modal || !form || !select || !input || !btnGuardar || !btnEliminar) return;
+
+  clearFormErrors();
+  form.reset();
+  await loadMaterialCategories();
+
+  select.onchange = () => {
+    const selectedOption = select.selectedOptions[0];
+    input.value = selectedOption && selectedOption.dataset.nombre ? selectedOption.dataset.nombre : '';
+    btnEliminar.disabled = !select.value;
+  };
+  btnEliminar.disabled = true;
+
+  btnGuardar.onclick = async () => {
+    try {
+      clearFormErrors();
+      const nombre = input.value.trim();
+      if (!nombre) {
+        applyFieldError(form, 'categoria_nombre', 'El nombre de la categoría es obligatorio.');
+        return;
+      }
+
+      const id = select.value;
+      const response = await apiRequest(id ? `materiales/categorias/${id}` : 'materiales/categorias', {
+        method: id ? 'PUT' : 'POST',
+        body: { nombre }
+      });
+
+      showToast(response?.message || 'Categoría guardada correctamente.', 'success');
+      await loadMaterialCategories(nombre);
+      await loadCrudLists();
+      form.reset();
+      btnEliminar.disabled = true;
+    } catch (error) {
+      handleFormError(error, form);
+    }
+  };
+
+  btnEliminar.onclick = async () => {
+    const id = select.value;
+    if (!id) return;
+    const confirmed = window.confirm('¿Deseas eliminar esta categoría?');
+    if (!confirmed) return;
+
+    try {
+      const response = await apiRequest(`materiales/categorias/${id}`, { method: 'DELETE' });
+      showToast(response?.message || 'Categoría eliminada correctamente.', 'success');
+      await loadMaterialCategories();
+      form.reset();
+      btnEliminar.disabled = true;
     } catch (error) {
       handleFormError(error, form);
     }
@@ -1029,6 +1242,15 @@ function escapeAttribute(value) {
     .replace(/'/g, '&#039;');
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function ensureFormIdField(form) {
   let hiddenIdInput = form.querySelector('input[name="id"]');
   if (!hiddenIdInput) {
@@ -1045,5 +1267,317 @@ function renderEmptyTable(table, message) {
   if (!table) return;
   const tbody = table.querySelector('tbody');
   if (!tbody) return;
-  tbody.innerHTML = `<tr class="empty-table"><td colspan="5">${message}</td></tr>`;
+  const columnCount = table.querySelectorAll('thead th').length || 1;
+  tbody.innerHTML = `<tr class="empty-table"><td colspan="${columnCount}">${message}</td></tr>`;
 }
+
+async function setupInventoryModule() {
+  const page = window.location.pathname.split('/').pop() || 'index.html';
+  if (page !== 'inventario.html') return;
+
+  const btnNuevoMovimiento = document.getElementById('btnNuevoMovimiento');
+  const btnGuardarMovimiento = document.getElementById('btnGuardarMovimiento');
+  const form = document.getElementById('formMovimientoInventario');
+
+  if (btnNuevoMovimiento) {
+    btnNuevoMovimiento.addEventListener('click', () => {
+      openInventoryMovementModal();
+    });
+  }
+
+  if (form) {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveInventoryMovement();
+    });
+  }
+
+  if (btnGuardarMovimiento) {
+    btnGuardarMovimiento.addEventListener('click', () => {
+      saveInventoryMovement();
+    });
+  }
+
+  await loadInventoryMaterials();
+  await loadInventoryUsers();
+  await loadInventoryMovements();
+}
+
+async function openInventoryMovementModal() {
+  const modal = document.getElementById('modalMovimientoInventario');
+  const form = document.getElementById('formMovimientoInventario');
+  if (!modal || !form || typeof bootstrap === 'undefined') return;
+
+  form.reset();
+  clearFormErrors();
+  setDefaultDate();
+  await loadInventoryMaterials();
+  await loadInventoryUsers();
+
+  const bootstrapModal = new bootstrap.Modal(modal);
+  bootstrapModal.show();
+}
+
+async function saveInventoryMovement() {
+  const modal = document.getElementById('modalMovimientoInventario');
+  const form = document.getElementById('formMovimientoInventario');
+  if (!form) return;
+
+  try {
+    clearFormErrors();
+
+    if (!form.checkValidity()) {
+      displayValidationErrors(form);
+      return;
+    }
+
+    const payload = objectFromForm(form);
+    const response = await apiRequest('inventario/movimientos', {
+      method: 'POST',
+      body: payload
+    });
+
+    showToast(response?.message || 'Movimiento guardado correctamente.', 'success');
+
+    if (modal && typeof bootstrap !== 'undefined') {
+      const bootstrapModal = bootstrap.Modal.getInstance(modal);
+      if (bootstrapModal) bootstrapModal.hide();
+    }
+
+    form.reset();
+    setDefaultDate();
+    await loadCrudLists();
+    await loadInventoryMaterials();
+    await loadInventoryUsers();
+    await loadInventoryMovements();
+  } catch (error) {
+    handleFormError(error, form);
+  }
+}
+
+async function loadInventoryMaterials() {
+  const select = document.getElementById('movimiento-material');
+  if (!select) return;
+
+  try {
+    const response = await apiRequest('materiales');
+    const materials = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+    select.innerHTML = '<option value="">Seleccione un material</option>' + materials.map((material) => {
+      const id = material.id_material ?? material.id ?? '';
+      const code = material.codigo ? `${material.codigo} - ` : '';
+      const name = material.nombre || 'Material sin nombre';
+      const unit = material.unidad || material.unidad_medida || '';
+      const label = unit ? `${code}${name} (${unit})` : `${code}${name}`;
+      return `<option value="${escapeAttribute(id)}">${label}</option>`;
+    }).join('');
+  } catch (error) {
+    showToast(error.message || 'No se pudieron cargar los materiales.', 'error');
+  }
+}
+
+async function loadInventoryUsers() {
+  const select = document.getElementById('movimiento-usuario');
+  if (!select) return;
+
+  try {
+    const response = await apiRequest('usuarios');
+    const users = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+    select.innerHTML = '<option value="">Seleccione un usuario</option>' + users.map((user) => {
+      const id = user.id_usuario ?? user.id ?? '';
+      const name = user.nombre || user.usuario || user.email || 'Usuario sin nombre';
+      const role = user.rol ? ` (${user.rol})` : '';
+      return `<option value="${escapeAttribute(id)}">${escapeHtml(name)}${escapeHtml(role)}</option>`;
+    }).join('');
+  } catch (error) {
+    showToast(error.message || 'No se pudieron cargar los usuarios.', 'error');
+  }
+}
+
+async function loadInventoryMovements() {
+  const table = document.getElementById('tabla-movimientos');
+  if (!table) return;
+
+  try {
+    const response = await apiRequest('inventario/movimientos');
+    const movements = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+    renderInventoryMovementsTable(table, movements);
+  } catch (error) {
+    renderEmptyTable(table, 'No hay movimientos registrados.');
+    console.warn('inventario/movimientos no disponible:', error.message);
+  }
+}
+
+function renderInventoryMovementsTable(table, movements) {
+  if (!movements.length) {
+    renderEmptyTable(table, 'No hay movimientos registrados.');
+    return;
+  }
+
+  table.querySelector('tbody').innerHTML = movements.map((movement) => {
+    const record = JSON.stringify(movement);
+    const idValue = movement.id_movimiento ?? movement.id ?? '';
+    const type = movement.tipo || 'Movimiento';
+    const badgeClass = normalizeErrorText(type).includes('salida') ? 'badge--danger' : 'badge--success';
+
+    return `
+      <tr>
+        <td>${formatDateValue(movement.fecha)}</td>
+        <td>${escapeHtml(movement.material_nombre || 'Material sin nombre')}</td>
+        <td><span class="badge ${badgeClass}">${escapeHtml(type)}</span></td>
+        <td>${escapeHtml(movement.usuario_nombre || 'Sin usuario')}</td>
+        <td>${formatInventoryNumber(movement.cantidad)}</td>
+        <td>${escapeHtml(movement.referencia || '—')}</td>
+        <td>
+          <button class="button button--icon" type="button" data-view-movement="${idValue}" data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  bindMovementDetailButtons(table);
+}
+
+function bindMovementDetailButtons(table) {
+  table.querySelectorAll('[data-view-movement]').forEach((button) => {
+    button.onclick = async () => {
+      const id = button.dataset.viewMovement;
+      const fallbackMovement = parseRecordData(button.dataset.record);
+
+      try {
+        let movement = fallbackMovement;
+        if (id) {
+          try {
+            movement = await apiRequest(`inventario/movimientos/${id}`);
+          } catch (error) {
+            movement = fallbackMovement;
+          }
+        }
+
+        if (!movement) {
+          throw new Error('No se pudo cargar el detalle del movimiento.');
+        }
+
+        showMovementDetail(movement);
+      } catch (error) {
+        showToast(error.message || 'No se pudo cargar el detalle del movimiento.', 'error');
+      }
+    };
+  });
+}
+
+function showMovementDetail(movement) {
+  const modal = document.getElementById('modalDetalleMovimiento');
+  const content = document.getElementById('detalleMovimientoContent');
+  if (!modal || !content || typeof bootstrap === 'undefined') return;
+
+  const type = movement.tipo || 'Movimiento';
+  const badgeClass = normalizeErrorText(type).includes('salida') ? 'badge--danger' : 'badge--success';
+  content.innerHTML = `
+    <div class="fichaCliente-content">
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Movimiento:</label>
+        <div class="fichaCliente-value">#${escapeHtml(movement.id_movimiento ?? movement.id ?? '—')}</div>
+      </div>
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Material:</label>
+        <div class="fichaCliente-value">${escapeHtml(movement.material_nombre || 'Material sin nombre')}</div>
+      </div>
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Tipo:</label>
+        <div class="fichaCliente-value"><span class="badge ${badgeClass}">${escapeHtml(type)}</span></div>
+      </div>
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Usuario:</label>
+        <div class="fichaCliente-value">${escapeHtml(movement.usuario_nombre || 'Sin usuario')}</div>
+      </div>
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Fecha:</label>
+        <div class="fichaCliente-value">${formatDateValue(movement.fecha)}</div>
+      </div>
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Cantidad:</label>
+        <div class="fichaCliente-value">${formatInventoryNumber(movement.cantidad)}</div>
+      </div>
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Referencia:</label>
+        <div class="fichaCliente-value">${escapeHtml(movement.referencia || '—')}</div>
+      </div>
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Observación:</label>
+        <div class="fichaCliente-value">${escapeHtml(movement.notas || movement.observacion || '—')}</div>
+      </div>
+      <div class="fichaCliente-row">
+        <label class="fichaCliente-label">Registrado:</label>
+        <div class="fichaCliente-value">${formatDateValue(movement.fecha_registro)}</div>
+      </div>
+    </div>
+  `;
+
+  const bootstrapModal = new bootstrap.Modal(modal);
+  bootstrapModal.show();
+}
+
+function renderInventorySummary(items) {
+  const metricValues = document.querySelectorAll('.metric-card strong');
+  if (!metricValues.length) return;
+
+  const normalStock = items.filter((item) => String(item.estado || '').toLowerCase().includes('normal')).length;
+  const minimumStock = items.filter((item) => String(item.estado || '').toLowerCase().includes('mínimo') || String(item.estado || '').toLowerCase().includes('minimo')).length;
+
+  const values = [items.length, normalStock, minimumStock];
+  metricValues.forEach((element, index) => {
+    if (index < values.length) element.textContent = values[index];
+  });
+}
+
+function renderInventoryTable(table, items) {
+  if (!items.length) {
+    renderEmptyTable(table, 'No hay existencias registradas.');
+    return;
+  }
+
+  table.querySelector('tbody').innerHTML = items.map((item) => {
+    const materialName = item.material_nombre || item.nombre || 'Material sin nombre';
+    const code = item.codigo ? `<small>${item.codigo}</small>` : '';
+    const unit = item.unidad || item.unidad_medida || '—';
+    const stock = Number(item.stock_actual ?? 0);
+    const minimum = Number(item.stock_minimo ?? 0);
+    const status = item.estado || (stock <= minimum ? 'Stock mínimo' : 'Existencia normal');
+    const statusClass = normalizeErrorText(status).includes('minimo') ? 'badge--danger' : 'badge--success';
+
+    return `
+      <tr>
+        <td><strong>${materialName}</strong>${code}</td>
+        <td>${unit}</td>
+        <td>${formatInventoryNumber(stock)}</td>
+        <td>${formatInventoryNumber(minimum)}</td>
+        <td><span class="badge ${statusClass}">${status}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function formatInventoryNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '0';
+  return new Intl.NumberFormat('es-GT', {
+    minimumFractionDigits: number % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2
+  }).format(number);
+}
+
+function formatDateValue(value) {
+  if (!value) return '—';
+  if (typeof value === 'string') {
+    const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnly) {
+      return `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1]}`;
+    }
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat('es-GT').format(date);
+}
+
+
