@@ -50,6 +50,10 @@ if (typeof document !== 'undefined') {
     setupInventoryModule();
     loadCurrentUserDisplay();
     setupUsuariosModule();
+    setupProyectoModule();
+    setupProyectoModal();
+    setupCalculatorModule();
+    setupReportModal();
   });
 }
 
@@ -206,7 +210,7 @@ function setPasswordToggle() {
 
 function setStandardForms() {
   document.querySelectorAll('form[data-form]').forEach((form) => {
-    const submitButton = form.querySelector('boton[type="submit"]');
+    const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton && !form.dataset.originalSubmitText) {
       form.dataset.originalSubmitText = submitButton.textContent.trim();
     }
@@ -303,6 +307,49 @@ function setTableSearches() {
   });
 }
 
+async function setupCalculatorModule() {
+  const page = window.location.pathname.split('/').pop() || 'index.html';
+  if (page !== 'calculo-materiales.html') return;
+  await Promise.all([
+    loadCalculatorProjects(),
+    loadCalculatorMaterials()
+  ]);
+}
+
+async function loadCalculatorProjects() {
+  const select = document.getElementById('calculo-proyecto');
+  if (!select) return;
+
+  try {
+    const response = await apiRequest('proyectos');
+    const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+    select.innerHTML = '<option value="">Seleccione un proyecto (opcional)</option>' + items.map((project) => {
+      const id = project.id_proyecto ?? project.id ?? '';
+      const name = project.nombre || project.nombre_proyecto || 'Proyecto sin nombre';
+      return `<option value="${escapeAttribute(id)}">${escapeHtml(name)}</option>`;
+    }).join('');
+  } catch (error) {
+    console.warn('No se pudieron cargar los proyectos para el cálculo:', error.message);
+  }
+}
+
+async function loadCalculatorMaterials() {
+  const select = document.getElementById('calculo-material');
+  if (!select) return;
+
+  try {
+    const response = await apiRequest('materiales');
+    const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+    select.innerHTML = '<option value="">Seleccione un material</option>' + items.map((material) => {
+      const id = material.id_material ?? material.id ?? '';
+      const name = material.nombre || 'Material sin nombre';
+      return `<option value="${escapeAttribute(id)}">${escapeHtml(name)}</option>`;
+    }).join('');
+  } catch (error) {
+    console.warn('No se pudieron cargar los materiales para el cálculo:', error.message);
+  }
+}
+
 function setCalculator() {
   const form = document.querySelector('[data-calculator]');
   const output = document.querySelector('[data-calculation-result]');
@@ -315,13 +362,27 @@ function setCalculator() {
     const length = Number(data.get('largo'));
     const height = Number(data.get('alto'));
     const coverage = Number(data.get('rendimiento'));
-    const price = Number(data.get('costo'));
+    const price = Number(data.get('costo') || 0);
     const area = length * height;
     const gallons = area / coverage;
-    const material = data.get('material');
-    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo en el proyecto.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${material}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
+    const materialSelect = form.querySelector('#calculo-material');
+    const materialName = materialSelect && materialSelect.selectedIndex > 0
+      ? materialSelect.options[materialSelect.selectedIndex].text
+      : (data.get('material') || 'Material');
+    const projectName = form.querySelector('#calculo-proyecto') && form.querySelector('#calculo-proyecto').selectedIndex > 0
+      ? form.querySelector('#calculo-proyecto').options[form.querySelector('#calculo-proyecto').selectedIndex].text
+      : 'Sin proyecto';
+    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo en el proyecto.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${materialName}</strong></div><div><span>Proyecto</span><strong>${projectName}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
     output.querySelector('[data-save-calculation]').addEventListener('click', () => showToast('Cálculo preparado y listo para guardar mediante la API.', 'success'));
   });
+}
+
+function renderReportPreview(form, preview) {
+  const data = new FormData(form);
+  const type = data.get('tipo');
+  const format = data.get('formato');
+  preview.innerHTML = `<div class="encabezado-panel"><div><h2>Vista previa</h2><p>Resultado solicitado: ${type}.</p></div></div><div class="contenido-reporte"><h3>${type}</h3><p>Filtros aplicados: ${data.get('desde') || 'sin fecha inicial'} a ${data.get('hasta') || 'sin fecha final'}.</p><div class="empty-state"><span>▥</span><h3>Sin información para mostrar</h3><p>La vista previa utilizará los datos de la API cuando el backend responda con información real.</p><button class="boton boton-secundario" type="button" data-export-report>Preparar exportación ${format}</button></div></div>`;
+  preview.querySelector('[data-export-report]').addEventListener('click', () => showToast(`La exportación a ${format} se realizará cuando el backend esté disponible.`, 'success'));
 }
 
 function setReportForm() {
@@ -332,11 +393,37 @@ function setReportForm() {
     event.preventDefault();
     clearFormErrors();
     if (!form.checkValidity()) { displayValidationErrors(form); return; }
-    const data = new FormData(form);
-    const type = data.get('tipo');
-    const format = data.get('formato');
-    preview.innerHTML = `<div class="encabezado-panel"><div><h2>Vista previa</h2><p>Resultado solicitado: ${type}.</p></div></div><div class="contenido-reporte"><h3>${type}</h3><p>Filtros aplicados: ${data.get('desde') || 'sin fecha inicial'} a ${data.get('hasta') || 'sin fecha final'}.</p><div class="empty-state"><span>▥</span><h3>Sin información para mostrar</h3><p>La vista previa utilizará los datos de la API cuando el backend responda con información real.</p><button class="boton boton-secundario" type="button" data-export-report>Preparar exportación ${format}</button></div></div>`;
-    preview.querySelector('[data-export-report]').addEventListener('click', () => showToast(`La exportación a ${format} se realizará cuando el backend esté disponible.`, 'success'));
+    renderReportPreview(form, preview);
+  });
+}
+
+function setupReportModal() {
+  const button = document.getElementById('btnGenerarReporte');
+  const form = document.getElementById('formReporteModal');
+  const modal = document.getElementById('modalGenerarReporte');
+  if (!button || !form || !modal || typeof bootstrap === 'undefined') return;
+
+  button.addEventListener('click', () => {
+    form.reset();
+    clearFormErrors();
+    const bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
+  });
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    clearFormErrors();
+    if (!form.checkValidity()) {
+      displayValidationErrors(form);
+      return;
+    }
+    const preview = document.querySelector('[data-report-preview]');
+    if (preview) {
+      renderReportPreview(form, preview);
+    }
+
+    const bootstrapModal = bootstrap.Modal.getInstance(modal);
+    if (bootstrapModal) bootstrapModal.hide();
   });
 }
 
@@ -736,12 +823,16 @@ async function loadCrudLists() {
       table.querySelector('tbody').innerHTML = items.map((item) => {
         const record = JSON.stringify(item);
         const idValue = findRecordId(item);
+        const nombre = item.nombre || item.nombre_proyecto || 'Sin nombre';
+        const cliente = item.cliente_nombre || item.cliente || item.nombre_cliente || 'Sin cliente';
+        const fecha = item.fecha_inicio || item.fechaInicio || '—';
+        const estado = item.estado || 'Pendiente';
         return `
           <tr>
-            <td>${item.nombre || 'Sin nombre'}</td>
-            <td>${item.cliente || 'Sin cliente'}</td>
-            <td>${item.fecha_inicio || item.fechaInicio || '—'}</td>
-            <td>${item.estado || 'Pendiente'}</td>
+            <td>${escapeHtml(nombre)}</td>
+            <td>${escapeHtml(cliente)}</td>
+            <td>${escapeHtml(fecha)}</td>
+            <td>${escapeHtml(estado)}</td>
             <td>
               <button class="boton boton-transparente" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}'>Editar</button>
               <button class="boton boton-transparente boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}">Eliminar</button>
@@ -887,7 +978,7 @@ function bindEditButtons(table) {
         const hiddenIdInput = ensureFormIdField(form);
         hiddenIdInput.value = recordId;
         form.dataset.editId = recordId;
-        const submitButton = form.querySelector('boton[type="submit"]');
+        const submitButton = form.querySelector('button[type="submit"]');
         if (submitButton && !form.dataset.originalSubmitText) {
           form.dataset.originalSubmitText = submitButton.textContent.trim();
         }
@@ -1352,7 +1443,7 @@ function openClienteEditModal(cliente, id, endpoint) {
 
 function findRecordId(item) {
   if (!item || typeof item !== 'object') return '';
-  return item.id_usuario ?? item.idUsuario ?? item.id_material ?? item.idMaterial ?? item.id_cliente ?? item.idCliente ?? item.id ?? '';
+  return item.id_proyecto ?? item.idProyecto ?? item.id_usuario ?? item.idUsuario ?? item.id_material ?? item.idMaterial ?? item.id_cliente ?? item.idCliente ?? item.id ?? '';
 }
 
 function parseRecordData(value) {
@@ -1401,6 +1492,117 @@ function renderEmptyTable(table, message) {
   if (!tbody) return;
   const columnCount = table.querySelectorAll('thead th').length || 1;
   tbody.innerHTML = `<tr class="empty-table"><td colspan="${columnCount}">${message}</td></tr>`;
+}
+
+async function setupProyectoModal() {
+  const button = document.getElementById('btnAgregarProyecto');
+  if (!button || typeof bootstrap === 'undefined') return;
+
+  button.addEventListener('click', () => {
+    openProyectoModal();
+  });
+}
+
+async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos') {
+  const modal = document.getElementById('modalEditarProyecto');
+  const form = document.getElementById('formEditarProyecto');
+  if (!modal || !form || typeof bootstrap === 'undefined') return;
+
+  form.reset();
+  form.querySelector('input[name="id"]').value = id || '';
+  clearFormErrors();
+
+  const titleModal = document.getElementById('modalEditarProyectoLabel');
+  if (titleModal) {
+    titleModal.textContent = proyecto ? 'Editar proyecto' : 'Crear proyecto';
+  }
+
+  await loadProjectClients(proyecto ? (proyecto.cliente_id ?? proyecto.id_cliente ?? '') : '');
+
+  if (proyecto) {
+    form.querySelector('input[name="nombre"]').value = proyecto.nombre || proyecto.nombre_proyecto || '';
+    form.querySelector('select[name="cliente_id"]').value = proyecto.cliente_id ?? proyecto.id_cliente ?? '';
+    form.querySelector('select[name="estado"]').value = proyecto.estado || 'Pendiente';
+    form.querySelector('input[name="fecha_inicio"]').value = proyecto.fecha_inicio || proyecto.fechaInicio || '';
+    form.querySelector('input[name="fecha_fin"]').value = proyecto.fecha_fin || proyecto.fechaFin || '';
+    form.querySelector('input[name="largo"]').value = proyecto.largo ?? proyecto.area_largo ?? '';
+    form.querySelector('input[name="ancho"]').value = proyecto.ancho ?? proyecto.area_ancho ?? '';
+    form.querySelector('input[name="altura"]').value = proyecto.altura ?? '';
+    form.querySelector('select[name="tipo"]').value = proyecto.tipo || '';
+    form.querySelector('input[name="presupuesto"]').value = proyecto.presupuesto ?? proyecto.costo_estimado ?? '';
+    form.querySelector('textarea[name="notas"]').value = proyecto.notas || proyecto.descripcion || '';
+  }
+
+  const btnGuardar = document.getElementById('btnGuardarProyecto');
+  btnGuardar.onclick = async () => {
+    try {
+      clearFormErrors();
+      if (!form.checkValidity()) {
+        displayValidationErrors(form);
+        return;
+      }
+
+      const projectId = form.querySelector('input[name="id"]').value;
+      const payload = {};
+      const formData = new FormData(form);
+      for (const [key, value] of formData.entries()) {
+        if (key !== 'id') payload[key] = value;
+      }
+
+      const isCreating = !projectId;
+      const requestUrl = isCreating ? endpoint : `${endpoint}/${projectId}`;
+      const method = isCreating ? 'POST' : 'PUT';
+
+      const response = await apiRequest(requestUrl, {
+        method,
+        body: payload
+      });
+
+      showToast(response?.message || (isCreating ? 'Proyecto creado correctamente.' : 'Proyecto actualizado correctamente.'), 'success');
+      const bootstrapModal = bootstrap.Modal.getInstance(modal);
+      if (bootstrapModal) bootstrapModal.hide();
+      setTimeout(() => loadCrudLists(), 300);
+    } catch (error) {
+      handleFormError(error, form);
+    }
+  };
+
+  const bootstrapModal = new bootstrap.Modal(modal);
+  bootstrapModal.show();
+}
+
+async function setupProyectoModule() {
+  const page = window.location.pathname.split('/').pop() || 'index.html';
+  if (page !== 'proyectos.html') return;
+
+  const form = document.querySelector('form[data-form]');
+  if (form) {
+    const inputCliente = form.querySelector('[name="cliente_id"]');
+    if (inputCliente) {
+      await loadProjectClients(inputCliente.value || '');
+    }
+  }
+}
+
+async function loadProjectClients(selectedValue = '') {
+  const select = document.getElementById('proyecto-cliente') || document.getElementById('modalProyecto-cliente');
+  if (!select) return;
+
+  try {
+    const response = await apiRequest('clientes');
+    const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+    select.innerHTML = '<option value="">Seleccione un cliente</option>' + items.map((client) => {
+      const id = client.id_cliente ?? client.idCliente ?? client.id ?? '';
+      const name = client.nombre || client.razonSocial || 'Cliente sin nombre';
+      return `<option value="${escapeAttribute(id)}">${escapeHtml(name)}</option>`;
+    }).join('');
+
+    if (selectedValue) {
+      select.value = String(selectedValue);
+    }
+  } catch (error) {
+    console.warn('No se pudieron cargar los clientes para proyectos:', error.message);
+  }
 }
 
 async function setupUsuariosModule() {

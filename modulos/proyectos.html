@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Proyectos | Recubrimientos Diego S.A</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    />
     <link rel="stylesheet" href="../assets/css/estilos.css" />
   </head>
   <body>
@@ -41,7 +45,7 @@
             <span class="avatar-usuario" data-avatar-usuario></span>
             <span>
               <strong data-usuario-nombre>Cargando...</strong>
-              <small>Administrador</small>
+              <small data-usuario-rol>Administrador</small>
             </span>
           </button>
         </header>
@@ -55,96 +59,7 @@
             </div>
           </div>
 
-          <div class="cuadricula-contenido cuadricula-contenido--form">
-            <article class="panel">
-              <div class="encabezado-panel">
-                <div>
-                  <h2>Nuevo proyecto</h2>
-                  <p>Asocie el proyecto con un cliente y registre sus dimensiones.</p>
-                </div>
-              </div>
-
-              <form class="cuadricula-formulario" data-form>
-                <div class="grupo-formulario grupo-formulario--full">
-                  <label for="proyecto-nombre">Nombre del proyecto *</label>
-                  <input id="proyecto-nombre" name="nombre" type="text" placeholder="Ej. Pintura interior residencia zona 10" required>
-                </div>
-
-                <div class="grupo-formulario">
-                  <label for="proyecto-cliente">Cliente *</label>
-                  <select id="proyecto-cliente" name="cliente" required>
-                    <option value="">Seleccione un cliente</option>
-                    <option>Cliente de ejemplo</option>
-                  </select>
-                </div>
-
-                <div class="grupo-formulario">
-                  <label for="proyecto-estado">Estado *</label>
-                  <select id="proyecto-estado" name="estado" required>
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="En proceso">En proceso</option>
-                    <option value="Finalizado">Finalizado</option>
-                  </select>
-                </div>
-
-                <div class="grupo-formulario">
-                  <label for="proyecto-inicio">Fecha de inicio</label>
-                  <input id="proyecto-inicio" name="fecha_inicio" type="date">
-                </div>
-
-                <div class="grupo-formulario">
-                  <label for="proyecto-fin">Fecha estimada de finalización</label>
-                  <input id="proyecto-fin" name="fecha_fin" type="date">
-                </div>
-
-                <grupo-campos class="grupo-formulario--full grupo-campos">
-                  <legend>Dimensiones del área</legend>
-                  <div class="cuadricula-formulario cuadricula-formulario--three">
-                    <div class="grupo-formulario">
-                      <label for="proyecto-largo">Largo (m) *</label>
-                      <input id="proyecto-largo" name="largo" type="number" min="0.01" step="0.01" required>
-                    </div>
-
-                    <div class="grupo-formulario">
-                      <label for="proyecto-ancho">Ancho (m) *</label>
-                      <input id="proyecto-ancho" name="ancho" type="number" min="0.01" step="0.01" required>
-                    </div>
-
-                    <div class="grupo-formulario">
-                      <label for="proyecto-altura">Altura (m)</label>
-                      <input id="proyecto-altura" name="altura" type="number" min="0" step="0.01">
-                    </div>
-                  </div>
-                </grupo-campos>
-
-                <div class="grupo-formulario">
-                  <label for="proyecto-tipo">Tipo de recubrimiento</label>
-                  <select id="proyecto-tipo" name="tipo">
-                    <option value="">Seleccione una opción</option>
-                    <option>Pintura interior</option>
-                    <option>Pintura exterior</option>
-                    <option>Impermeabilización</option>
-                    <option>Sellado</option>
-                  </select>
-                </div>
-
-                <div class="grupo-formulario">
-                  <label for="proyecto-presupuesto">Presupuesto estimado (Q)</label>
-                  <input id="proyecto-presupuesto" name="presupuesto" type="number" min="0" step="0.01" placeholder="0.00">
-                </div>
-
-                <div class="grupo-formulario grupo-formulario--full">
-                  <label for="proyecto-descripcion">Descripción y observaciones</label>
-                  <textarea id="proyecto-descripcion" name="descripcion" rows="3" placeholder="Detalle del trabajo a realizar"></textarea>
-                </div>
-
-                <div class="form-actions grupo-formulario--full">
-                  <button class="boton boton-transparente" type="reset">Limpiar</button>
-                  <button class="boton boton-principal" type="submit">Guardar proyecto</button>
-                </div>
-              </form>
-            </article>
-
+          <div class="cuadricula-contenido">
             <article class="panel">
               <div class="encabezado-panel">
                 <div>
@@ -159,12 +74,17 @@
                   <input type="search" placeholder="Buscar proyecto" data-table-search="tabla-proyectos">
                 </label>
 
-                <select aria-label="Filtrar por estado">
-                  <option>Todos los estados</option>
-                  <option>Pendiente</option>
-                  <option>En proceso</option>
-                  <option>Finalizado</option>
-                </select>
+                <div class="barra-herramientas__actions">
+                  <select aria-label="Filtrar por estado">
+                    <option>Todos los estados</option>
+                    <option>Pendiente</option>
+                    <option>En proceso</option>
+                    <option>Finalizado</option>
+                  </select>
+                  <button type="button" class="boton boton-principal" id="btnAgregarProyecto">
+                    + Crear proyecto
+                  </button>
+                </div>
               </div>
 
               <div class="contenedor-tabla">
@@ -192,6 +112,99 @@
     </div>
 
     <div class="contenedor-alertas" aria-live="polite"></div>
+
+    <div class="modal fade" id="modalEditarProyecto" tabindex="-1" aria-labelledby="modalEditarProyectoLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalEditarProyectoLabel">Crear proyecto</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="formEditarProyecto" class="cuadricula-formulario">
+              <input type="hidden" name="id" />
+              <div class="grupo-formulario grupo-formulario--full">
+                <label for="modalProyecto-nombre">Nombre del proyecto *</label>
+                <input id="modalProyecto-nombre" name="nombre" type="text" placeholder="Ej. Pintura interior residencia zona 10" required />
+                <small class="error-formulario" id="error-nombre" style="display: none"></small>
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-cliente">Cliente *</label>
+                <select id="modalProyecto-cliente" name="cliente_id" required>
+                  <option value="">Seleccione un cliente</option>
+                </select>
+                <small class="error-formulario" id="error-cliente_id" style="display: none"></small>
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-estado">Estado *</label>
+                <select id="modalProyecto-estado" name="estado" required>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="En proceso">En proceso</option>
+                  <option value="Finalizado">Finalizado</option>
+                </select>
+                <small class="error-formulario" id="error-estado" style="display: none"></small>
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-inicio">Fecha de inicio</label>
+                <input id="modalProyecto-inicio" name="fecha_inicio" type="date" />
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-fin">Fecha estimada de finalización</label>
+                <input id="modalProyecto-fin" name="fecha_fin" type="date" />
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-largo">Largo (m) *</label>
+                <input id="modalProyecto-largo" name="largo" type="number" min="0.01" step="0.01" required />
+                <small class="error-formulario" id="error-largo" style="display: none"></small>
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-ancho">Ancho (m) *</label>
+                <input id="modalProyecto-ancho" name="ancho" type="number" min="0.01" step="0.01" required />
+                <small class="error-formulario" id="error-ancho" style="display: none"></small>
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-altura">Altura (m)</label>
+                <input id="modalProyecto-altura" name="altura" type="number" min="0" step="0.01" />
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-tipo">Tipo de recubrimiento</label>
+                <select id="modalProyecto-tipo" name="tipo">
+                  <option value="">Seleccione una opción</option>
+                  <option>Pintura interior</option>
+                  <option>Pintura exterior</option>
+                  <option>Impermeabilización</option>
+                  <option>Sellado</option>
+                </select>
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalProyecto-presupuesto">Presupuesto estimado (Q)</label>
+                <input id="modalProyecto-presupuesto" name="presupuesto" type="number" min="0" step="0.01" placeholder="0.00" />
+              </div>
+
+              <div class="grupo-formulario grupo-formulario--full">
+                <label for="modalProyecto-notas">Descripción y observaciones</label>
+                <textarea id="modalProyecto-notas" name="notas" rows="3" placeholder="Detalle del trabajo a realizar"></textarea>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnGuardarProyecto">Guardar proyecto</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/app.js"></script>
   </body>
 </html>
