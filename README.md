@@ -64,3 +64,6 @@ Ajusta esa URL si tu backend corre en otro puerto o dominio. Los módulos intent
 
 Abre `login.html` en tu navegador. El sistema intenta conectarse a la API en cuanto se cargan los formularios y las pantallas de listado. Si el backend no está ejecutándose, la aplicación mantiene el comportamiento visual del prototipo y muestra un aviso en pantalla.
 
+## Usuario Predeterminado
+Usuario: admin@recubrimientos.com
+Contraseña: admin123

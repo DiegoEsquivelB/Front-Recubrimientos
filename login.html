@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -8,46 +8,42 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="assets/css/estilos.css">
 </head>
-<body class="login-page">
-  <main class="login-layout">
-    <section class="login-brand" aria-label="Presentación del sistema">
-      <a class="brand brand--light" href="login.html"><span class="brand__mark">R</span><span>Recubrimientos Diego S.A</span></a>
-      <div>
-        <p class="eyebrow">Gestión inteligente</p>
-        <h1>El control de sus recubrimientos, en un solo lugar.</h1>
-        <p>Administre clientes, proyectos, materiales e inventario desde una plataforma clara y organizada.</p>
-      </div>
-      <p class="login-brand__footer">Sistema de Administración y Gestión de Recubrimientos Arquitectónicos</p>
+<body class="pagina-login">
+  <main class="diseno-login">
+    <section class="login-marca" aria-label="Presentación del sistema">
+      <a class="marca marca--light" href="login.html" aria-label="Recubrimientos Diego S.A">
+        <img class="logo-marca logo-marca--light" src="assets/img/logo.png" alt="Recubrimientos Diego S.A">
+      </a>
     </section>
 
-    <section class="login-card-wrap">
-      <form class="login-card" data-form data-redirect="index.html">
-        <p class="eyebrow">Bienvenido</p>
+    <section class="contenedor-tarjeta-login">
+      <form class="tarjeta-login" data-form data-redirect="index.html">
         <h2>Inicie sesión</h2>
-        <p class="muted">Ingrese sus credenciales para continuar.</p>
-        <div class="form-group">
+        <p class="texto-suave">Ingrese sus credenciales para continuar.</p>
+        <div class="grupo-formulario">
           <label for="usuario">Correo electrónico o usuario</label>
           <input id="usuario" name="usuario" type="text" autocomplete="username" placeholder="ejemplo@correo.com" required>
         </div>
-        <div class="form-group">
+        <div class="grupo-formulario">
           <label for="contrasena">Contraseña</label>
-          <div class="password-field">
+          <div class="campo-contrasena">
             <input id="contrasena" name="contrasena" type="password" autocomplete="current-password" placeholder="Ingrese su contraseña" required>
-            <button class="icon-button password-toggle" type="button" aria-label="Mostrar contraseña">◉</button>
+            <button class="boton-icono alternar-contrasena" type="button" aria-label="Mostrar contraseña">◉</button>
           </div>
         </div>
-        <div class="login-error" id="login-error" aria-live="polite" role="alert" style="display:none;"></div>
-        <div class="form-options">
-          <label class="check-label"><input type="checkbox" name="recordar"> Recordarme</label>
+        <div class="error-login" id="error-login" aria-live="polite" role="alert" style="display:none;"></div>
+        <div class="opciones-formulario">
+          <label class="etiqueta-check"><input type="checkbox" name="recordar"> Recordarme</label>
           <a href="#recuperar">¿Olvidó su contraseña?</a>
         </div>
-        <button class="button button--primary button--full" type="submit">Ingresar al sistema</button>
-        <p class="form-note">Acceso exclusivo para usuarios autorizados.</p>
+        <button class="boton boton-principal boton-completo" type="submit">Ingresar al sistema</button>
+        <p class="nota-formulario">Acceso exclusivo para usuarios autorizados.</p>
       </form>
     </section>
   </main>
-  <div class="toast-container" aria-live="polite"></div>
+  <div class="contenedor-alertas" aria-live="polite"></div>
   <script src="assets/js/app.js"></script>
 </body>
 </html>
+
 

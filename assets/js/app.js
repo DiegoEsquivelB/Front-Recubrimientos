@@ -1,12 +1,18 @@
 const API_CONFIG = {
-  baseUrl: 'http://localhost:3000/api',
-  tokenKey: 'recubrimientos_token'
+  baseUrl: `${window.location.protocol}//${window.location.hostname}:3000/api`,
+  legacyTokenKey: 'recubrimientos_token'
 };
 
 const browserWindow = typeof window !== 'undefined' ? window : globalThis;
 if (browserWindow) {
   browserWindow.API_CONFIG = API_CONFIG;
 }
+
+/* Mapeo global de usuarios para rellenar nombres faltantes en movimientos */
+const usuariosMapeo = {};
+
+/* Cache del usuario actual para incluir en operaciones que lo requieren */
+let usuarioActual = null;
 
 function getLoginErrorMessage(error) {
   const rawMessage = error && typeof error.message === 'string' ? error.message : '';
@@ -42,11 +48,65 @@ if (typeof document !== 'undefined') {
     setupClienteModal();
     setupMaterialModal();
     setupInventoryModule();
+    loadCurrentUserDisplay();
+    setupUsuariosModule();
   });
 }
 
 if (typeof module !== 'undefined') {
   module.exports = { getLoginErrorMessage };
+}
+
+function getDisplayUserName(user, fallback = 'Usuario') {
+  const candidates = [
+    user?.nombre,
+    user?.usuario,
+    user?.email,
+    user?.name
+  ];
+
+  for (const candidate of candidates) {
+    const value = String(candidate ?? '').trim();
+    if (!value || value === 'null' || value === 'undefined') continue;
+    if (user?.rol && value === user.rol) continue;
+    return value;
+  }
+
+  return fallback;
+}
+
+async function loadCurrentUserDisplay() {
+  try {
+    const currentUser = await getCurrentUser();
+    if (currentUser) {
+      const userName = getDisplayUserName(currentUser, 'Usuario');
+      
+      /* Llenar el nombre en la barra superior */
+      const nombreElement = document.querySelector('[data-usuario-nombre]');
+      if (nombreElement) {
+        nombreElement.textContent = userName;
+      }
+      
+      /* Llenar el rol en la barra superior */
+      const rolElement = document.querySelector('[data-usuario-rol]');
+      if (rolElement) {
+        rolElement.textContent = currentUser.rol || '';
+      }
+      
+      /* Generar avatar con las iniciales */
+      const avatarElement = document.querySelector('[data-avatar-usuario]');
+      if (avatarElement) {
+        const initials = userName
+          .split(' ')
+          .slice(0, 2)
+          .map(word => word.charAt(0).toUpperCase())
+          .join('');
+        avatarElement.textContent = initials;
+      }
+    }
+  } catch (error) {
+    console.warn('No se pudo cargar los datos del usuario para mostrar:', error.message);
+  }
 }
 
 function setCurrentDate() {
@@ -59,59 +119,82 @@ function setCurrentDate() {
 
 function setActiveNavigation() {
   const page = window.location.pathname.split('/').pop() || 'index.html';
-  document.querySelectorAll('.menu__link').forEach((link) => {
-    if (link.getAttribute('href') === page) link.classList.add('is-active');
+  document.querySelectorAll('.enlace-menu').forEach((link) => {
+    if (link.getAttribute('href') === page) link.classList.add('activo');
   });
 }
 
 function setSidebarControls() {
-  const sidebar = document.querySelector('[data-sidebar]');
+  const barraLateral = document.querySelector('[data-barra-lateral]');
   const appShell = document.querySelector('.app-shell');
-  const toggle = document.querySelector('[data-sidebar-toggle]');
-  if (!sidebar || !toggle) return;
+  const toggle = document.querySelector('[data-barra-lateral-toggle]');
+  if (!barraLateral || !toggle) return;
 
-  // Toggle sidebar cuando se hace clic en el botón hamburguesa
-  toggle.addEventListener('click', () => {
-    sidebar.classList.toggle('is-open');
+  const closeSidebar = () => {
+    barraLateral.classList.remove('abierto');
     if (appShell) {
-      appShell.classList.toggle('sidebar-active');
+      appShell.classList.remove('barra-lateral-activa');
+    }
+  };
+
+  // Toggle barra-lateral cuando se hace clic en el botón hamburguesa
+  toggle.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const isOpen = barraLateral.classList.contains('abierto');
+    barraLateral.classList.toggle('abierto', !isOpen);
+    if (appShell) {
+      appShell.classList.toggle('barra-lateral-activa', !isOpen);
     }
   });
 
-  // Cerrar sidebar cuando se hace clic en un enlace del menú
-  document.querySelectorAll('.menu__link').forEach((link) => {
+  // Cerrar barra-lateral cuando se hace clic en un enlace del menú
+  document.querySelectorAll('.enlace-menu').forEach((link) => {
     link.addEventListener('click', () => {
-      sidebar.classList.remove('is-open');
-      if (appShell) {
-        appShell.classList.remove('sidebar-active');
+      closeSidebar();
+    });
+  });
+
+  document.querySelectorAll('.cerrar-sesion').forEach((link) => {
+    link.addEventListener('click', async (event) => {
+      event.preventDefault();
+      try {
+        await apiRequest('auth/logout', { method: 'POST' });
+      } catch (_error) {
+        // Aunque el servidor no responda, limpiamos rastros antiguos y sacamos al usuario de la UI.
+      } finally {
+        clearLegacyAuthStorage();
+        window.location.href = link.getAttribute('href') || 'login.html';
       }
     });
   });
 
-  // Cerrar sidebar cuando se hace clic en el overlay
+  // Cerrar barra-lateral cuando se hace clic fuera del menú en móvil
+  document.addEventListener('click', (event) => {
+    if (window.innerWidth > 820 || !barraLateral.classList.contains('abierto')) return;
+    if (event.target.closest('[data-barra-lateral]') || event.target.closest('[data-barra-lateral-toggle]')) return;
+    closeSidebar();
+  });
+
+  // Cerrar barra-lateral cuando se hace clic en el overlay
   if (appShell) {
     appShell.addEventListener('click', (e) => {
-      if (e.target === appShell && sidebar.classList.contains('is-open') && window.innerWidth <= 820) {
-        sidebar.classList.remove('is-open');
-        appShell.classList.remove('sidebar-active');
+      if (e.target === appShell && barraLateral.classList.contains('abierto') && window.innerWidth <= 820) {
+        closeSidebar();
       }
     });
   }
 
-  // Cerrar sidebar al redimensionar la ventana a desktop
+  // Cerrar barra-lateral al redimensionar la ventana a desktop
   window.addEventListener('resize', () => {
     if (window.innerWidth > 820) {
-      sidebar.classList.remove('is-open');
-      if (appShell) {
-        appShell.classList.remove('sidebar-active');
-      }
+      closeSidebar();
     }
   });
 }
 
 function setPasswordToggle() {
-  const toggle = document.querySelector('.password-toggle');
-  const input = document.querySelector('.password-field input');
+  const toggle = document.querySelector('.alternar-contrasena');
+  const input = document.querySelector('.campo-contrasena input');
   if (!toggle || !input) return;
   toggle.addEventListener('click', () => {
     const isPassword = input.type === 'password';
@@ -123,7 +206,7 @@ function setPasswordToggle() {
 
 function setStandardForms() {
   document.querySelectorAll('form[data-form]').forEach((form) => {
-    const submitButton = form.querySelector('button[type="submit"]');
+    const submitButton = form.querySelector('boton[type="submit"]');
     if (submitButton && !form.dataset.originalSubmitText) {
       form.dataset.originalSubmitText = submitButton.textContent.trim();
     }
@@ -162,11 +245,12 @@ function setStandardForms() {
           showToast(successMessage, 'success');
 
           if (endpoint === 'auth/login' && response?.user) {
-            const storage = payload.recordar ? localStorage : sessionStorage;
-            const sessionValue = JSON.stringify(response.user);
-            localStorage.removeItem(API_CONFIG.tokenKey);
-            sessionStorage.removeItem(API_CONFIG.tokenKey);
-            storage.setItem(API_CONFIG.tokenKey, sessionValue);
+            clearLegacyAuthStorage();
+            /* Guardar datos del usuario autenticado en sessionStorage */
+            if (response.user && (response.user.id_usuario || response.user.id)) {
+              usuarioActual = response.user;
+              sessionStorage.setItem('usuarioActual', JSON.stringify(response.user));
+            }
           }
 
           if (form.dataset.redirect) {
@@ -186,7 +270,7 @@ function setStandardForms() {
           if (endpoint === 'auth/login') {
             const usuarioInput = form.querySelector('[name="usuario"]');
             const passwordInput = form.querySelector('[name="contrasena"]');
-            const loginError = document.getElementById('login-error');
+            const loginError = document.getElementById('error-login');
             if (usuarioInput) usuarioInput.classList.add('is-invalid');
             if (passwordInput) passwordInput.classList.add('is-invalid');
             if (loginError) {
@@ -235,7 +319,7 @@ function setCalculator() {
     const area = length * height;
     const gallons = area / coverage;
     const material = data.get('material');
-    output.innerHTML = `<div class="panel__header"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo en el proyecto.</p></div></div><div class="calculation-summary"><div class="calculation-summary__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="calculation-list"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${material}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="button button--secondary" data-save-calculation>Guardar cálculo estimado</button></div>`;
+    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo en el proyecto.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${material}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
     output.querySelector('[data-save-calculation]').addEventListener('click', () => showToast('Cálculo preparado y listo para guardar mediante la API.', 'success'));
   });
 }
@@ -251,7 +335,7 @@ function setReportForm() {
     const data = new FormData(form);
     const type = data.get('tipo');
     const format = data.get('formato');
-    preview.innerHTML = `<div class="panel__header"><div><h2>Vista previa</h2><p>Resultado solicitado: ${type}.</p></div></div><div class="report-content"><h3>${type}</h3><p>Filtros aplicados: ${data.get('desde') || 'sin fecha inicial'} a ${data.get('hasta') || 'sin fecha final'}.</p><div class="empty-state"><span>▥</span><h3>Sin información para mostrar</h3><p>La vista previa utilizará los datos de la API cuando el backend responda con información real.</p><button class="button button--secondary" type="button" data-export-report>Preparar exportación ${format}</button></div></div>`;
+    preview.innerHTML = `<div class="encabezado-panel"><div><h2>Vista previa</h2><p>Resultado solicitado: ${type}.</p></div></div><div class="contenido-reporte"><h3>${type}</h3><p>Filtros aplicados: ${data.get('desde') || 'sin fecha inicial'} a ${data.get('hasta') || 'sin fecha final'}.</p><div class="empty-state"><span>▥</span><h3>Sin información para mostrar</h3><p>La vista previa utilizará los datos de la API cuando el backend responda con información real.</p><button class="boton boton-secundario" type="button" data-export-report>Preparar exportación ${format}</button></div></div>`;
     preview.querySelector('[data-export-report]').addEventListener('click', () => showToast(`La exportación a ${format} se realizará cuando el backend esté disponible.`, 'success'));
   });
 }
@@ -263,13 +347,13 @@ function setDefaultDate() {
 }
 
 function showToast(message, type = '') {
-  const container = document.querySelector('.toast-container');
+  const container = document.querySelector('.contenedor-alertas');
   if (!container) return;
-  const toast = document.createElement('div');
-  toast.className = `toast ${type ? `toast--${type}` : ''}`;
-  toast.textContent = message;
-  container.append(toast);
-  window.setTimeout(() => toast.remove(), 4200);
+  const alerta = document.createElement('div');
+  alerta.className = `alerta ${type ? `alerta--${type}` : ''}`;
+  alerta.textContent = message;
+  container.append(alerta);
+  window.setTimeout(() => alerta.remove(), 4200);
 }
 
 function resolveApiEndpoint(form) {
@@ -290,7 +374,7 @@ function resolveApiEndpoint(form) {
 }
 
 function clearFormErrors() {
-  const errors = document.querySelectorAll('.form-error');
+  const errors = document.querySelectorAll('.error-formulario');
   errors.forEach(error => {
     error.textContent = '';
     error.style.display = 'none';
@@ -382,6 +466,14 @@ function normalizeErrorText(message) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function clearLegacyAuthStorage() {
+  localStorage.removeItem(API_CONFIG.legacyTokenKey);
+  sessionStorage.removeItem(API_CONFIG.legacyTokenKey);
+  /* Limpiar datos del usuario autenticado */
+  sessionStorage.removeItem('usuarioActual');
+  usuarioActual = null;
+}
+
 function handleFormError(error, form) {
   clearFormErrors();
 
@@ -424,9 +516,9 @@ function handleFormError(error, form) {
       applyFieldError(form, field, message);
     });
 
-    const toastMessage = mappedErrors.message || errorObject.message || fallbackMessage;
-    if (toastMessage) {
-      showToast(toastMessage, 'error');
+    const alertaMessage = mappedErrors.message || errorObject.message || fallbackMessage;
+    if (alertaMessage) {
+      showToast(alertaMessage, 'error');
     }
     return;
   }
@@ -475,13 +567,9 @@ async function apiRequest(endpoint, options = {}) {
     ...(options.headers || {})
   };
 
-  const token = localStorage.getItem(API_CONFIG.tokenKey) || sessionStorage.getItem(API_CONFIG.tokenKey);
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   const requestOptions = {
     method: 'GET',
+    credentials: 'include',
     ...options,
     headers
   };
@@ -511,6 +599,11 @@ async function apiRequest(endpoint, options = {}) {
       const message = payload && typeof payload === 'object' ? (payload.message || payload.error || 'Error en la API.') : response.statusText || 'Error en la API.';
       const apiError = new Error(message);
       apiError.response = payload;
+      apiError.status = response.status;
+      if (response.status === 401 && !window.location.pathname.endsWith('login.html')) {
+        clearLegacyAuthStorage();
+        window.location.href = window.location.pathname.includes('/modulos/') ? '../login.html' : 'login.html';
+      }
       throw apiError;
     }
 
@@ -542,7 +635,7 @@ async function loadDashboardData() {
 
   try {
     const summary = await apiRequest('dashboard/summary');
-    const metricCards = document.querySelectorAll('.metric-card strong');
+    const metricCards = document.querySelectorAll('.tarjeta-metrica strong');
     if (!metricCards.length || !summary) return;
 
     const values = [
@@ -556,7 +649,7 @@ async function loadDashboardData() {
       element.textContent = values[index] ?? 0;
     });
 
-    const smallTexts = document.querySelectorAll('.metric-card small');
+    const smallTexts = document.querySelectorAll('.tarjeta-metrica small');
     if (smallTexts[0]) smallTexts[0].textContent = summary.clientesLabel || 'Registros actuales';
     if (smallTexts[1]) smallTexts[1].textContent = summary.proyectosLabel || 'En seguimiento';
     if (smallTexts[2]) smallTexts[2].textContent = summary.materialesLabel || 'Disponibles';
@@ -626,9 +719,9 @@ async function loadCrudLists() {
             <td>${item.correo || '—'}</td>
             <td>${item.estado || 'Activo'}</td>
             <td>
-              <button class="button button--icon" type="button" data-view-ficha="${idValue}" data-record='${escapeAttribute(record)}' title="Ver ficha completa"><img src="../assets/img/ico lupa.png" alt="Ver ficha"></button>
-              <button class="button button--icon" type="button" data-edit-id="${idValue}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
-              <button class="button button--icon button--danger" type="button" data-delete-id="${idValue}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
+              <button class="boton boton-icono" type="button" data-view-ficha="${idValue}" data-record='${escapeAttribute(record)}' title="Ver ficha completa"><img src="../assets/img/ico lupa.png" alt="Ver ficha"></button>
+              <button class="boton boton-icono" type="button" data-edit-id="${idValue}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
+              <button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
             </td>
           </tr>
         `;
@@ -650,8 +743,8 @@ async function loadCrudLists() {
             <td>${item.fecha_inicio || item.fechaInicio || '—'}</td>
             <td>${item.estado || 'Pendiente'}</td>
             <td>
-              <button class="button button--ghost" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}'>Editar</button>
-              <button class="button button--ghost button--danger" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}">Eliminar</button>
+              <button class="boton boton-transparente" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}'>Editar</button>
+              <button class="boton boton-transparente boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}">Eliminar</button>
             </td>
           </tr>
         `;
@@ -688,8 +781,34 @@ async function loadCrudLists() {
             <td>${costo}</td>
             <td>${stockMinimo}</td>
             <td>
-              <button class="button button--icon" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
-              <button class="button button--icon button--danger" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
+              <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
+              <button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      bindEditButtons(table);
+      bindDeleteButtons(table);
+      return;
+    }
+
+    if (page === 'usuarios.html') {
+      table.querySelector('tbody').innerHTML = items.map((item) => {
+        const record = JSON.stringify(item);
+        const idValue = item.id_usuario ?? item.idUsuario ?? item.id ?? '';
+        const nombre = item.nombre || item.usuario || item.name || 'Sin nombre';
+        const correo = item.email || item.correo || '—';
+        const rol = item.rol || '—';
+        const estado = item.estado || 'Activo';
+        return `
+          <tr>
+            <td>${nombre}</td>
+            <td>${correo}</td>
+            <td>${rol}</td>
+            <td>${estado}</td>
+            <td>
+              <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
+              <button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
             </td>
           </tr>
         `;
@@ -708,8 +827,8 @@ async function loadCrudLists() {
           <td>${Object.values(item)[1] || '—'}</td>
           <td>${Object.values(item)[2] || '—'}</td>
           <td>
-            <button class="button button--ghost" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}'>Editar</button>
-            <button class="button button--ghost button--danger" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}">Eliminar</button>
+            <button class="boton boton-transparente" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}'>Editar</button>
+            <button class="boton boton-transparente boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}">Eliminar</button>
           </td>
         </tr>
       `;
@@ -723,11 +842,11 @@ async function loadCrudLists() {
 }
 
 function bindEditButtons(table) {
-  table.querySelectorAll('[data-edit-id]').forEach((button) => {
-    button.onclick = async () => {
-      const id = button.dataset.editId;
-      const endpoint = button.dataset.editEndpoint;
-      const fallbackItem = parseRecordData(button.dataset.record);
+  table.querySelectorAll('[data-edit-id]').forEach((boton) => {
+    boton.onclick = async () => {
+      const id = boton.dataset.editId;
+      const endpoint = boton.dataset.editEndpoint;
+      const fallbackItem = parseRecordData(boton.dataset.record);
 
       try {
         let item = fallbackItem;
@@ -755,6 +874,11 @@ function bindEditButtons(table) {
           return;
         }
 
+        if (window.location.pathname.includes('usuarios.html')) {
+          openUsuarioModal(item, id, endpoint);
+          return;
+        }
+
         // Fallback para otros módulos
         const form = document.querySelector('form[data-form]');
         if (!form) return;
@@ -763,7 +887,7 @@ function bindEditButtons(table) {
         const hiddenIdInput = ensureFormIdField(form);
         hiddenIdInput.value = recordId;
         form.dataset.editId = recordId;
-        const submitButton = form.querySelector('button[type="submit"]');
+        const submitButton = form.querySelector('boton[type="submit"]');
         if (submitButton && !form.dataset.originalSubmitText) {
           form.dataset.originalSubmitText = submitButton.textContent.trim();
         }
@@ -790,10 +914,10 @@ function bindEditButtons(table) {
 }
 
 function bindDeleteButtons(table) {
-  table.querySelectorAll('[data-delete-id]').forEach((button) => {
-    button.onclick = async () => {
-      const id = button.dataset.deleteId;
-      const endpoint = button.dataset.deleteEndpoint;
+  table.querySelectorAll('[data-delete-id]').forEach((boton) => {
+    boton.onclick = async () => {
+      const id = boton.dataset.deleteId;
+      const endpoint = boton.dataset.deleteEndpoint;
       if (!id || !endpoint) return;
 
       const confirmed = window.confirm('¿Deseas eliminar este registro?');
@@ -813,9 +937,9 @@ function bindDeleteButtons(table) {
 }
 
 function bindViewFichaButtons(table) {
-  table.querySelectorAll('[data-view-ficha]').forEach((button) => {
-    button.onclick = () => {
-      const record = parseRecordData(button.dataset.record);
+  table.querySelectorAll('[data-view-ficha]').forEach((boton) => {
+    boton.onclick = () => {
+      const record = parseRecordData(boton.dataset.record);
       if (!record) return;
       showClienteFicha(record);
     };
@@ -828,34 +952,34 @@ function showClienteFicha(cliente) {
   if (!modal || !content) return;
 
   const fieldsHTML = `
-    <div class="fichaCliente-content">
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Nombre o razón social:</label>
-        <div class="fichaCliente-value">${cliente.nombre || cliente.razonSocial || '—'}</div>
+    <div class="contenido-ficha-cliente">
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Nombre o razón social:</label>
+        <div class="valor-ficha-cliente">${cliente.nombre || cliente.razonSocial || '—'}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">DPI/NIT:</label>
-        <div class="fichaCliente-value">${cliente.identificacion || '—'}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">DPI/NIT:</label>
+        <div class="valor-ficha-cliente">${cliente.identificacion || '—'}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Teléfono:</label>
-        <div class="fichaCliente-value">${cliente.telefono || '—'}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Teléfono:</label>
+        <div class="valor-ficha-cliente">${cliente.telefono || '—'}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Correo electrónico:</label>
-        <div class="fichaCliente-value">${cliente.correo || '—'}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Correo electrónico:</label>
+        <div class="valor-ficha-cliente">${cliente.correo || '—'}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Dirección:</label>
-        <div class="fichaCliente-value">${cliente.direccion || '—'}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Dirección:</label>
+        <div class="valor-ficha-cliente">${cliente.direccion || '—'}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Observaciones:</label>
-        <div class="fichaCliente-value">${cliente.notas || '—'}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Observaciones:</label>
+        <div class="valor-ficha-cliente">${cliente.notas || '—'}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Estado:</label>
-        <div class="fichaCliente-value">${cliente.estado || 'Activo'}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Estado:</label>
+        <div class="valor-ficha-cliente">${cliente.estado || 'Activo'}</div>
       </div>
     </div>
   `;
@@ -931,10 +1055,18 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       }
 
       const isCreating = !materialId;
+      const registrarInventario = payload.registrar_inventario === '1' || payload.registrar_inventario === true;
+      
       if (!isCreating) {
         delete payload.registrar_inventario;
         delete payload.stock_inicial;
         delete payload.referencia_inventario;
+      } else if (registrarInventario) {
+        /* Incluir el ID del usuario actual cuando se crea un material con stock inicial */
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          payload.id_usuario = currentUser.id_usuario ?? currentUser.id ?? '';
+        }
       }
 
       const requestUrl = isCreating ? endpoint : `${endpoint}/${materialId}`;
@@ -1220,7 +1352,7 @@ function openClienteEditModal(cliente, id, endpoint) {
 
 function findRecordId(item) {
   if (!item || typeof item !== 'object') return '';
-  return item.id_material ?? item.idMaterial ?? item.id_cliente ?? item.idCliente ?? item.id ?? '';
+  return item.id_usuario ?? item.idUsuario ?? item.id_material ?? item.idMaterial ?? item.id_cliente ?? item.idCliente ?? item.id ?? '';
 }
 
 function parseRecordData(value) {
@@ -1271,9 +1403,161 @@ function renderEmptyTable(table, message) {
   tbody.innerHTML = `<tr class="empty-table"><td colspan="${columnCount}">${message}</td></tr>`;
 }
 
+async function setupUsuariosModule() {
+  const page = window.location.pathname.split('/').pop() || 'index.html';
+  if (page !== 'usuarios.html') return;
+
+  const btnAgregar = document.getElementById('btnAgregarUsuario');
+  if (btnAgregar) {
+    btnAgregar.addEventListener('click', () => {
+      openUsuarioModal();
+    });
+  }
+
+  const form = document.getElementById('formEditarUsuario');
+  if (!form) return;
+
+  const passwordField = form.querySelector('input[name="contrasena"]');
+  if (passwordField) {
+    passwordField.required = false;
+    passwordField.placeholder = 'Dejar vacío para mantener contraseña actual';
+  }
+}
+
+function openUsuarioModal(usuario = null, id = '', endpoint = 'usuarios') {
+  const modal = document.getElementById('modalEditarUsuario');
+  const form = document.getElementById('formEditarUsuario');
+  if (!modal || !form) return;
+
+  form.reset();
+  form.querySelector('input[name="id"]').value = id || '';
+  clearFormErrors();
+
+  const titleModal = document.getElementById('modalEditarUsuarioLabel');
+  if (titleModal) {
+    titleModal.textContent = usuario ? 'Editar usuario' : 'Agregar nuevo usuario';
+  }
+
+  if (usuario) {
+    const nombreValor = usuario.nombre || usuario.name || '';
+    form.querySelector('input[name="nombre"]').value = nombreValor;
+    form.querySelector('input[name="correo"]').value = usuario.correo || usuario.email || '';
+    form.querySelector('select[name="rol"]').value = usuario.rol || '';
+    form.querySelector('select[name="estado"]').value = usuario.estado || 'Activo';
+    form.querySelector('textarea[name="observacion"]').value = usuario.observacion || '';
+    const passwordField = form.querySelector('input[name="contrasena"]');
+    if (passwordField) {
+      passwordField.value = '';
+      passwordField.required = false;
+      passwordField.placeholder = 'Dejar vacío para mantener contraseña actual';
+    }
+  } else {
+    const passwordField = form.querySelector('input[name="contrasena"]');
+    if (passwordField) {
+      passwordField.required = true;
+      passwordField.placeholder = 'Mínimo 8 caracteres';
+    }
+  }
+
+  form.dataset.endpoint = endpoint;
+
+  const btnGuardar = document.getElementById('btnGuardarUsuario');
+  btnGuardar.onclick = async () => {
+    try {
+      clearFormErrors();
+      if (!form.checkValidity()) {
+        displayValidationErrors(form);
+        return;
+      }
+
+      const userId = form.querySelector('input[name="id"]').value;
+      const nombreInput = form.querySelector('input[name="nombre"]');
+      const correoInput = form.querySelector('input[name="correo"]');
+      const rolInput = form.querySelector('select[name="rol"]');
+      const estadoInput = form.querySelector('select[name="estado"]');
+      const passwordInput = form.querySelector('input[name="contrasena"]');
+
+      const emailValue = correoInput ? correoInput.value.trim() : '';
+      const passwordValue = passwordInput ? String(passwordInput.value || '').trim() : '';
+
+      const payload = {
+        nombre: nombreInput ? nombreInput.value.trim() : '',
+        usuario: emailValue,
+        email: emailValue,
+        rol: rolInput ? rolInput.value : 'Operador',
+        estado: estadoInput ? estadoInput.value : 'Activo'
+      };
+
+      if (userId) {
+        payload.id = userId;
+        payload.id_usuario = userId;
+      }
+
+      if (passwordValue) {
+        payload.contrasena = passwordValue;
+        payload.password_hash = passwordValue;
+      }
+
+      if (!payload.nombre) {
+        throw new Error('El nombre del usuario es obligatorio.');
+      }
+
+      if (!payload.email) {
+        throw new Error('El correo electrónico es obligatorio.');
+      }
+
+      if (!userId && !payload.contrasena) {
+        throw new Error('La contraseña es obligatoria para crear un usuario.');
+      }
+
+      const isCreating = !userId;
+      const requestUrl = isCreating ? endpoint : `${endpoint}/${userId}`;
+      const method = isCreating ? 'POST' : 'PUT';
+
+      const response = await apiRequest(requestUrl, {
+        method,
+        body: payload
+      });
+
+      const currentUser = await getCurrentUser();
+      const currentUserId = currentUser && (currentUser.id_usuario ?? currentUser.id ?? '');
+      if (!isCreating && currentUserId && String(currentUserId) === String(userId)) {
+        const updatedUser = {
+          ...currentUser,
+          nombre: payload.nombre,
+          email: payload.email,
+          usuario: payload.email,
+          rol: payload.rol,
+          estado: payload.estado
+        };
+        usuarioActual = updatedUser;
+        sessionStorage.setItem('usuarioActual', JSON.stringify(updatedUser));
+        await loadCurrentUserDisplay();
+      }
+
+      showToast(response?.message || (isCreating ? 'Usuario registrado correctamente.' : 'Usuario actualizado correctamente.'), 'success');
+
+      const bootstrapModal = bootstrap.Modal.getInstance(modal);
+      if (bootstrapModal) bootstrapModal.hide();
+
+      setTimeout(() => {
+        loadCrudLists();
+      }, 300);
+    } catch (error) {
+      handleFormError(error, form);
+    }
+  };
+
+  const bootstrapModal = new bootstrap.Modal(modal);
+  bootstrapModal.show();
+}
+
 async function setupInventoryModule() {
   const page = window.location.pathname.split('/').pop() || 'index.html';
   if (page !== 'inventario.html') return;
+
+  /* Cargar y mapear usuarios para completar nombres en movimientos */
+  await loadAndMapUsers();
 
   const btnNuevoMovimiento = document.getElementById('btnNuevoMovimiento');
   const btnGuardarMovimiento = document.getElementById('btnGuardarMovimiento');
@@ -1332,6 +1616,9 @@ async function saveInventoryMovement() {
     }
 
     const payload = objectFromForm(form);
+    /* Remover el nombre del usuario, solo enviar el id */
+    delete payload.usuario_nombre;
+    
     const response = await apiRequest('inventario/movimientos', {
       method: 'POST',
       body: payload
@@ -1375,21 +1662,91 @@ async function loadInventoryMaterials() {
   }
 }
 
-async function loadInventoryUsers() {
-  const select = document.getElementById('movimiento-usuario');
-  if (!select) return;
+async function getCurrentUser() {
+  if (usuarioActual) return usuarioActual;
+  
+  /* Intentar recuperar del sessionStorage primero */
+  try {
+    const stored = sessionStorage.getItem('usuarioActual');
+    if (stored) {
+      usuarioActual = JSON.parse(stored);
+      return usuarioActual;
+    }
+  } catch (error) {
+    console.warn('Error recuperando usuario de sessionStorage:', error.message);
+  }
+  
+  /* Fallback a llamada API si no está en sessionStorage */
+  try {
+    const response = await apiRequest('auth/me');
+    if (response && (response.id_usuario || response.id)) {
+      usuarioActual = response;
+      sessionStorage.setItem('usuarioActual', JSON.stringify(response));
+      return response;
+    }
+  } catch (error) {
+    console.warn('No se pudo obtener el usuario actual:', error.message);
+  }
+  
+  return null;
+}
 
+async function loadAndMapUsers() {
   try {
     const response = await apiRequest('usuarios');
     const users = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
-    select.innerHTML = '<option value="">Seleccione un usuario</option>' + users.map((user) => {
+    
+    users.forEach((user) => {
       const id = user.id_usuario ?? user.id ?? '';
-      const name = user.nombre || user.usuario || user.email || 'Usuario sin nombre';
-      const role = user.rol ? ` (${user.rol})` : '';
-      return `<option value="${escapeAttribute(id)}">${escapeHtml(name)}${escapeHtml(role)}</option>`;
-    }).join('');
+      let name = getDisplayUserName(user, 'Usuario sin nombre');
+      
+      /* Agregar rol si existe */
+      if (user.rol) {
+        name = `${name} (${user.rol})`;
+      }
+      
+      if (id) {
+        usuariosMapeo[id] = name;
+      }
+    });
   } catch (error) {
-    showToast(error.message || 'No se pudieron cargar los usuarios.', 'error');
+    console.warn('No se pudieron cargar los usuarios para mapeo:', error.message);
+  }
+}
+
+async function loadInventoryUsers() {
+  const inputUsuario = document.getElementById('movimiento-usuario');
+  const inputUsuarioId = document.getElementById('movimiento-usuario-id');
+  if (!inputUsuario) return;
+
+  try {
+    /* Obtener y auto-llenar el usuario actual */
+    const currentUser = await getCurrentUser();
+    if (currentUser) {
+      const userId = currentUser.id_usuario ?? currentUser.id ?? '';
+      let userName = getDisplayUserName(currentUser, 'Usuario sin nombre');
+      
+      /* Agregar rol si existe */
+      if (currentUser.rol) {
+        userName = `${userName} (${currentUser.rol})`;
+      }
+      
+      if (inputUsuario) {
+        inputUsuario.value = userName;
+      }
+      if (inputUsuarioId) {
+        inputUsuarioId.value = userId;
+      }
+    } else {
+      if (inputUsuario) {
+        inputUsuario.value = 'Usuario no disponible';
+      }
+    }
+  } catch (error) {
+    console.warn('No se pudo cargar el usuario:', error.message);
+    if (inputUsuario) {
+      inputUsuario.value = 'Error al cargar usuario';
+    }
   }
 }
 
@@ -1418,17 +1775,24 @@ function renderInventoryMovementsTable(table, movements) {
     const idValue = movement.id_movimiento ?? movement.id ?? '';
     const type = movement.tipo || 'Movimiento';
     const badgeClass = normalizeErrorText(type).includes('salida') ? 'badge--danger' : 'badge--success';
+    
+    /* Usar el mapeo de usuarios si el backend no envía usuario_nombre */
+    let usuarioNombre = movement.usuario_nombre;
+    if (!usuarioNombre && movement.id_usuario) {
+      usuarioNombre = usuariosMapeo[movement.id_usuario];
+    }
+    usuarioNombre = usuarioNombre || 'Sin usuario';
 
     return `
       <tr>
         <td>${formatDateValue(movement.fecha)}</td>
         <td>${escapeHtml(movement.material_nombre || 'Material sin nombre')}</td>
         <td><span class="badge ${badgeClass}">${escapeHtml(type)}</span></td>
-        <td>${escapeHtml(movement.usuario_nombre || 'Sin usuario')}</td>
+        <td>${escapeHtml(usuarioNombre)}</td>
         <td>${formatInventoryNumber(movement.cantidad)}</td>
         <td>${escapeHtml(movement.referencia || '—')}</td>
         <td>
-          <button class="button button--icon" type="button" data-view-movement="${idValue}" data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
+          <button class="boton boton-icono" type="button" data-view-movement="${idValue}" data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
         </td>
       </tr>
     `;
@@ -1438,10 +1802,10 @@ function renderInventoryMovementsTable(table, movements) {
 }
 
 function bindMovementDetailButtons(table) {
-  table.querySelectorAll('[data-view-movement]').forEach((button) => {
-    button.onclick = async () => {
-      const id = button.dataset.viewMovement;
-      const fallbackMovement = parseRecordData(button.dataset.record);
+  table.querySelectorAll('[data-view-movement]').forEach((boton) => {
+    boton.onclick = async () => {
+      const id = boton.dataset.viewMovement;
+      const fallbackMovement = parseRecordData(boton.dataset.record);
 
       try {
         let movement = fallbackMovement;
@@ -1473,42 +1837,42 @@ function showMovementDetail(movement) {
   const type = movement.tipo || 'Movimiento';
   const badgeClass = normalizeErrorText(type).includes('salida') ? 'badge--danger' : 'badge--success';
   content.innerHTML = `
-    <div class="fichaCliente-content">
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Movimiento:</label>
-        <div class="fichaCliente-value">#${escapeHtml(movement.id_movimiento ?? movement.id ?? '—')}</div>
+    <div class="contenido-ficha-cliente">
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Movimiento:</label>
+        <div class="valor-ficha-cliente">#${escapeHtml(movement.id_movimiento ?? movement.id ?? '—')}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Material:</label>
-        <div class="fichaCliente-value">${escapeHtml(movement.material_nombre || 'Material sin nombre')}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Material:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(movement.material_nombre || 'Material sin nombre')}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Tipo:</label>
-        <div class="fichaCliente-value"><span class="badge ${badgeClass}">${escapeHtml(type)}</span></div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Tipo:</label>
+        <div class="valor-ficha-cliente"><span class="badge ${badgeClass}">${escapeHtml(type)}</span></div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Usuario:</label>
-        <div class="fichaCliente-value">${escapeHtml(movement.usuario_nombre || 'Sin usuario')}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Usuario:</label>
+        <div class="valor-ficha-cliente">${escapeHtml((movement.usuario_nombre || usuariosMapeo[movement.id_usuario] || 'Sin usuario'))}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Fecha:</label>
-        <div class="fichaCliente-value">${formatDateValue(movement.fecha)}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Fecha:</label>
+        <div class="valor-ficha-cliente">${formatDateValue(movement.fecha)}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Cantidad:</label>
-        <div class="fichaCliente-value">${formatInventoryNumber(movement.cantidad)}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Cantidad:</label>
+        <div class="valor-ficha-cliente">${formatInventoryNumber(movement.cantidad)}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Referencia:</label>
-        <div class="fichaCliente-value">${escapeHtml(movement.referencia || '—')}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Referencia:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(movement.referencia || '—')}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Observación:</label>
-        <div class="fichaCliente-value">${escapeHtml(movement.notas || movement.observacion || '—')}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Observación:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(movement.notas || movement.observacion || '—')}</div>
       </div>
-      <div class="fichaCliente-row">
-        <label class="fichaCliente-label">Registrado:</label>
-        <div class="fichaCliente-value">${formatDateValue(movement.fecha_registro)}</div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Registrado:</label>
+        <div class="valor-ficha-cliente">${formatDateValue(movement.fecha_registro)}</div>
       </div>
     </div>
   `;
@@ -1518,7 +1882,7 @@ function showMovementDetail(movement) {
 }
 
 function renderInventorySummary(items) {
-  const metricValues = document.querySelectorAll('.metric-card strong');
+  const metricValues = document.querySelectorAll('.tarjeta-metrica strong');
   if (!metricValues.length) return;
 
   const normalStock = items.filter((item) => String(item.estado || '').toLowerCase().includes('normal')).length;
@@ -1579,5 +1943,4 @@ function formatDateValue(value) {
   if (Number.isNaN(date.getTime())) return String(value);
   return new Intl.DateTimeFormat('es-GT').format(date);
 }
-
 
