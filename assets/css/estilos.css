@@ -807,6 +807,96 @@ boton {
   font-size: 12px;
 }
 
+.lista-proyectos-recientes {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.lista-proyectos-recientes__item {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+}
+
+.lista-proyectos-recientes__item:last-child {
+  border-bottom: 0;
+}
+
+.lista-proyectos-recientes__item strong {
+  color: var(--ink);
+  display: block;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+
+.lista-proyectos-recientes__item small {
+  color: var(--texto-suave);
+  display: block;
+  font-size: 12px;
+}
+
+.lista-proyectos-recientes__meta {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+  text-align: right;
+}
+
+.lista-proyectos-recientes__meta span {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lista-proyectos-recientes__meta small {
+  color: var(--texto-suave);
+  font-size: 12px;
+}
+
+.tabla-materiales-detalle {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.tabla-materiales-detalle__header,
+.tabla-materiales-detalle__row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 2.1fr) minmax(70px, .7fr) minmax(90px, .9fr) minmax(90px, .9fr);
+  padding: 10px 12px;
+}
+
+.tabla-materiales-detalle__header {
+  background: #edf5f7;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tabla-materiales-detalle__row {
+  border-top: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.tabla-materiales-detalle__row span,
+.tabla-materiales-detalle__header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* =====================================================
    Formularios / tablas / barra-herramientas
    ===================================================== */
@@ -874,6 +964,59 @@ boton {
 
 .materiales-proyecto-control > button {
   flex-shrink: 0;
+}
+
+.lista-materiales-proyecto {
+  margin-top: 10px;
+}
+
+.tabla-materiales-proyecto {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.tabla-materiales-proyecto__header,
+.tabla-materiales-proyecto__row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 2.2fr) minmax(80px, .8fr) minmax(100px, 1fr) auto;
+  padding: 10px 12px;
+}
+
+.tabla-materiales-proyecto__header {
+  background: #edf5f7;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.tabla-materiales-proyecto__row {
+  background: #fff;
+  border-top: 1px solid var(--line);
+}
+
+.material-proyecto-nombre {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.material-proyecto-cantidad,
+.material-proyecto-subtotal {
+  color: var(--texto-suave);
+  font-size: 12px;
+}
+
+.btn-quitar-material {
+  border-color: #e9a9a5;
+  color: #bd4b48;
+  font-size: 12px;
+  padding: 6px 10px;
 }
 
 .grupo-formulario input:focus,

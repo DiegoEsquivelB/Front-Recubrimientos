@@ -44,6 +44,7 @@ if (typeof document !== 'undefined') {
     setReportForm();
     setDefaultDate();
     loadDashboardData();
+    loadRecentProjects();
     loadCrudLists();
     setupClienteModal();
     setupMaterialModal();
@@ -879,6 +880,69 @@ async function loadDashboardData() {
   }
 }
 
+async function loadRecentProjects() {
+  const page = window.location.pathname.split('/').pop() || 'index.html';
+  if (page !== 'index.html') return;
+
+  const container = document.getElementById('proyectos-recientes-container');
+  if (!container) return;
+
+  try {
+    const projects = await apiRequest('proyectos');
+    const items = Array.isArray(projects) ? projects.slice(0, 5) : [];
+
+    if (!items.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <span>▣</span>
+          <h3>Aún no hay proyectos</h3>
+          <p>Registre su primer proyecto para iniciar el seguimiento.</p>
+          <a class="boton boton-secundario" href="modulos/proyectos.html">Registrar proyecto</a>
+        </div>
+      `;
+      return;
+    }
+
+    const rows = items.map((project) => {
+      const idValue = project.id_proyecto ?? project.id ?? '';
+      const nombre = project.nombre || project.nombre_proyecto || 'Sin nombre';
+      const cliente = project.cliente_nombre || project.cliente || 'Sin cliente';
+      const estado = project.estado || 'Pendiente';
+      const fecha = formatDateValue(project.fecha_inicio || project.fechaInicio || '—');
+      const presupuesto = project.presupuesto ?? project.costo_estimado ?? 0;
+
+      return `
+        <div class="lista-proyectos-recientes__item">
+          <div>
+            <strong>${escapeHtml(nombre)}</strong>
+            <small>${escapeHtml(cliente)}</small>
+          </div>
+          <div class="lista-proyectos-recientes__meta">
+            <span>${escapeHtml(estado)}</span>
+            <small>${escapeHtml(fecha)}</small>
+            <small>Q ${Number(presupuesto).toFixed(2)}</small>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="lista-proyectos-recientes">
+        ${rows}
+      </div>
+    `;
+  } catch (error) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span>▣</span>
+        <h3>No se pudieron cargar los proyectos</h3>
+        <p>Intente nuevamente más tarde.</p>
+      </div>
+    `;
+    console.warn('No se pudieron cargar los proyectos recientes:', error.message);
+  }
+}
+
 function obtenerMaterialesProyecto(form) {
   const container = form.querySelector('#listaMaterialesProyecto');
   if (!container) return [];
@@ -899,17 +963,83 @@ function obtenerMaterialesProyecto(form) {
   }).filter(Boolean);
 }
 
+function ensureProjectMaterialTable(list) {
+  if (!list) return null;
+
+  if (list.querySelector('.tabla-materiales-proyecto')) {
+    return list.querySelector('.tabla-materiales-proyecto');
+  }
+
+  list.innerHTML = `
+    <div class="tabla-materiales-proyecto">
+      <div class="tabla-materiales-proyecto__header">
+        <span>Material</span>
+        <span>Cantidad</span>
+        <span>Subtotal</span>
+        <span></span>
+      </div>
+      <div class="tabla-materiales-proyecto__body"></div>
+    </div>
+  `;
+
+  return list.querySelector('.tabla-materiales-proyecto');
+}
+
+function crearFilaMaterialProyecto(material, cantidad, precio, showActions = true) {
+  const row = document.createElement('div');
+  row.className = 'tabla-materiales-proyecto__row';
+  row.dataset.projectMaterialItem = 'true';
+  row.dataset.materialId = String(material.id_material ?? material.id ?? '');
+  row.dataset.cantidad = String(cantidad);
+  row.dataset.precioUnitario = String(precio);
+
+  const nombre = material.nombre || material.material_nombre || 'Material';
+  const subtotal = (Number(cantidad) * Number(precio || 0)).toFixed(2);
+
+  row.innerHTML = `
+    <span class="material-proyecto-nombre">${escapeHtml(nombre)}</span>
+    <span class="material-proyecto-cantidad">${Math.trunc(Number(cantidad))} un.</span>
+    <span class="material-proyecto-subtotal">Q ${subtotal}</span>
+    ${showActions ? '<button type="button" class="btn btn-sm btn-outline-danger btn-quitar-material">Quitar</button>' : '<span></span>'}
+  `;
+
+  if (showActions) {
+    row.querySelector('.btn-quitar-material').onclick = () => row.remove();
+  }
+
+  return row;
+}
+
 function cargarOpcionesMaterialesProyecto(select) {
   if (!select) return;
 
-  apiRequest('materiales')
-    .then((response) => {
-      const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
-      select.innerHTML = '<option value="">Seleccione un material</option>' + items.map((material) => {
+  Promise.all([
+    apiRequest('materiales'),
+    apiRequest('inventario')
+  ])
+    .then(([materialesResponse, inventarioResponse]) => {
+      const materiales = Array.isArray(materialesResponse)
+        ? materialesResponse
+        : (materialesResponse && Array.isArray(materialesResponse.data) ? materialesResponse.data : []);
+
+      const inventario = Array.isArray(inventarioResponse)
+        ? inventarioResponse
+        : (inventarioResponse && Array.isArray(inventarioResponse.data) ? inventarioResponse.data : []);
+
+      const stockPorMaterial = {};
+      inventario.forEach((item) => {
+        const idMaterial = item.id_material ?? item.idMaterial ?? item.material_id ?? item.id ?? '';
+        if (idMaterial !== '') {
+          stockPorMaterial[String(idMaterial)] = Number(item.stock_actual ?? item.stock ?? 0);
+        }
+      });
+
+      select.innerHTML = '<option value="">Seleccione un material</option>' + materiales.map((material) => {
         const id = material.id_material ?? material.id ?? '';
         const name = material.nombre || 'Material sin nombre';
         const precio = Number(material.precio_unitario ?? material.precio ?? 0);
-        return `<option value="${escapeAttribute(id)}" data-precio="${escapeAttribute(String(precio))}">${escapeHtml(name)} - Q ${Number(precio).toFixed(2)}</option>`;
+        const stockDisponible = stockPorMaterial[String(id)] ?? 0;
+        return `<option value="${escapeAttribute(id)}" data-precio="${escapeAttribute(String(precio))}" data-stock="${escapeAttribute(String(Math.trunc(Number(stockDisponible))))}">${escapeHtml(name)} - Q ${Number(precio).toFixed(2)} - Disponible: ${Math.trunc(Number(stockDisponible))}</option>`;
       }).join('');
     })
     .catch((error) => {
@@ -925,6 +1055,7 @@ function bindProjectMaterialButtons(form) {
 
   if (!select || !cantidadInput || !addButton || !list) return;
 
+  ensureProjectMaterialTable(list);
   cargarOpcionesMaterialesProyecto(select);
 
   addButton.onclick = () => {
@@ -939,12 +1070,21 @@ function bindProjectMaterialButtons(form) {
     const selectedOption = select.options[select.selectedIndex];
     const nombre = selectedOption ? selectedOption.text.replace(/\s*-\s*Q\s*[0-9.]+/i, '') : 'Material';
     const precio = Number(selectedOption?.dataset?.precio || 0);
+    const stockDisponible = Number(selectedOption?.dataset?.stock || 0);
 
+    const body = list.querySelector('.tabla-materiales-proyecto__body');
     const existingItem = Array.from(list.querySelectorAll('[data-project-material-item]')).find((item) => item.dataset.materialId === String(materialId));
+    const totalCantidad = existingItem ? Number(existingItem.dataset.cantidad || 0) + cantidad : cantidad;
+
+    if (totalCantidad > stockDisponible) {
+      showToast(`La cantidad supera el stock disponible (${Math.trunc(stockDisponible)}).`, 'error');
+      return;
+    }
+
     if (existingItem) {
-      const newCantidad = Number(existingItem.dataset.cantidad || 0) + cantidad;
+      const newCantidad = totalCantidad;
       existingItem.dataset.cantidad = String(newCantidad);
-      existingItem.querySelector('.material-proyecto-cantidad').textContent = `${newCantidad.toFixed(2)} un.`;
+      existingItem.querySelector('.material-proyecto-cantidad').textContent = `${Math.trunc(newCantidad)} un.`;
       existingItem.querySelector('.material-proyecto-subtotal').textContent = `Q ${(newCantidad * precio).toFixed(2)}`;
       cantidadInput.value = '';
       select.selectedIndex = 0;
@@ -952,20 +1092,20 @@ function bindProjectMaterialButtons(form) {
     }
 
     const row = document.createElement('div');
-    row.className = 'item-material-proyecto';
+    row.className = 'tabla-materiales-proyecto__row';
     row.dataset.projectMaterialItem = 'true';
     row.dataset.materialId = String(materialId);
     row.dataset.cantidad = String(cantidad);
     row.dataset.precioUnitario = String(precio);
     row.innerHTML = `
-      <span>${escapeHtml(nombre)}</span>
-      <span class="material-proyecto-cantidad">${cantidad.toFixed(2)} un.</span>
+      <span class="material-proyecto-nombre">${escapeHtml(nombre)}</span>
+      <span class="material-proyecto-cantidad">${Math.trunc(cantidad)} un.</span>
       <span class="material-proyecto-subtotal">Q ${(cantidad * precio).toFixed(2)}</span>
       <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-material">Quitar</button>
     `;
 
     row.querySelector('.btn-quitar-material').onclick = () => row.remove();
-    list.appendChild(row);
+    body.appendChild(row);
     cantidadInput.value = '';
     select.selectedIndex = 0;
   };
@@ -1148,6 +1288,7 @@ async function loadCrudLists() {
         const largo = altura !== '—' && area > 0 && Number(altura) > 0
           ? Number((area / Number(altura)).toFixed(2))
           : (item.largo ?? item.area_m2 ?? '—');
+        const largoDisplay = largo === '—' || largo === null || largo === undefined ? '—' : Number(largo).toFixed(2);
         const tipo = item.tipo || '—';
         const presupuesto = item.presupuesto ?? item.costo_estimado ?? '—';
         const estado = item.estado || 'Pendiente';
@@ -1156,7 +1297,7 @@ async function loadCrudLists() {
             <td>${escapeHtml(nombre)}</td>
             <td>${escapeHtml(cliente)}</td>
             <td>${escapeHtml(fecha)}</td>
-            <td>${escapeHtml(String(largo))}</td>
+            <td>${escapeHtml(largoDisplay)}</td>
             <td>${escapeHtml(String(altura))}</td>
             <td>${escapeHtml(String(Number(area) > 0 ? Number(area).toFixed(2) : '—'))} ${Number(area) > 0 ? 'm²' : ''}</td>
             <td>${escapeHtml(tipo)}</td>
@@ -1415,14 +1556,28 @@ async function showProyectoDetalle(proyecto) {
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Materiales:</label>
         <div class="valor-ficha-cliente">
-          <ul class="lista-materiales-detalle">
+          <div class="tabla-materiales-detalle">
+            <div class="tabla-materiales-detalle__header">
+              <span>Material</span>
+              <span>Cantidad</span>
+              <span>Precio</span>
+              <span>Subtotal</span>
+            </div>
             ${materiales.map((item) => {
               const nombreMaterial = item.material_nombre || item.nombre || 'Material';
-              const cantidad = Number(item.cantidad_calculada ?? item.cantidad ?? 0).toFixed(2);
+              const cantidad = Math.trunc(Number(item.cantidad_calculada ?? item.cantidad ?? 0));
+              const precioUnitario = Number(item.precio_unitario ?? 0);
               const subtotal = Number(item.costo_subtotal ?? 0).toFixed(2);
-              return `<li><span>${escapeHtml(nombreMaterial)}</span><span>${cantidad} un.</span><span>Q ${subtotal}</span></li>`;
+              return `
+                <div class="tabla-materiales-detalle__row">
+                  <span>${escapeHtml(nombreMaterial)}</span>
+                  <span>${cantidad}</span>
+                  <span>Q ${precioUnitario.toFixed(2)}</span>
+                  <span>Q ${subtotal}</span>
+                </div>
+              `;
             }).join('')}
-          </ul>
+          </div>
         </div>
       </div>
       <div class="fila-ficha-cliente">
@@ -1541,6 +1696,35 @@ function openMaterialEditModal(material, id, endpoint) {
   openMaterialModal(material, id, endpoint);
 }
 
+async function generateMaterialCodeForCategory(categoryId, categoryName = '') {
+  try {
+    const categories = await apiRequest('materiales/categorias');
+    const selectedCategory = categories.find((category) => {
+      const categoryIdentifier = String(category.id ?? category.id_categoria ?? '');
+      return categoryIdentifier === String(categoryId) || String(category.nombre) === String(categoryName || '');
+    });
+
+    const rawPrefix = selectedCategory?.prefijo_codigo || selectedCategory?.nombre || categoryName || 'MAT';
+    const prefix = String(rawPrefix).replace(/[^A-Za-z]/g, '').slice(0, 10).toUpperCase() || 'MAT';
+    const materials = await apiRequest('materiales');
+    const escapePattern = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escapePattern}-(\\d+)$`, 'i');
+
+    let maxNumber = 0;
+    for (const material of materials) {
+      const match = String(material.codigo || '').match(pattern);
+      if (match) {
+        const numericCode = Number(match[1] || 0);
+        if (numericCode > maxNumber) maxNumber = numericCode;
+      }
+    }
+
+    return `${prefix}-${String(maxNumber + 1).padStart(3, '0')}`;
+  } catch (_error) {
+    return 'MAT-001';
+  }
+}
+
 async function openMaterialModal(material = null, id = '', endpoint = 'materiales') {
   const modal = document.getElementById('modalEditarMaterial');
   const form = document.getElementById('formEditarMaterial');
@@ -1556,16 +1740,58 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   setupMaterialInitialInventory(form, !material);
   await loadMaterialCategories(material ? material.categoria : '');
 
+  const categorySelect = form.querySelector('#modalMaterial-categoria');
+  const codeInput = form.querySelector('#modalMaterial-codigo');
+  if (codeInput) {
+    codeInput.readOnly = true;
+    codeInput.dataset.generated = '1';
+  }
+
+  const updateGeneratedCode = async () => {
+    if (!categorySelect || !codeInput) return;
+    const selectedOption = categorySelect.selectedOptions[0];
+    if (!selectedOption || !categorySelect.value) return;
+    codeInput.value = await generateMaterialCodeForCategory(categorySelect.value, selectedOption.textContent || '');
+    codeInput.dataset.generated = '1';
+  };
+
+  if (categorySelect && !material) {
+    categorySelect.onchange = updateGeneratedCode;
+  }
+
   if (material) {
-    form.querySelector('#modalMaterial-codigo').value = material.codigo || '';
+    if (categorySelect) {
+      const categoriaValue = material.id_categoria ?? material.categoria_id ?? material.categoria ?? '';
+      if (categoriaValue) {
+        const normalizedValue = String(categoriaValue);
+        const exists = [...categorySelect.options].some((option) => String(option.value) === normalizedValue);
+        if (exists) {
+          categorySelect.value = normalizedValue;
+        } else {
+          const categoryName = String(material.categoria || '').trim();
+          if (categoryName) {
+            const matchingOption = [...categorySelect.options].find((option) => option.textContent.trim() === categoryName);
+            if (matchingOption) categorySelect.value = matchingOption.value;
+          }
+        }
+      }
+    }
+
+    if (codeInput) {
+      codeInput.value = material.codigo || '';
+    }
+
     form.querySelector('#modalMaterial-nombre').value = material.nombre || '';
-    form.querySelector('#modalMaterial-categoria').value = material.categoria || '';
     form.querySelector('#modalMaterial-unidad').value = material.unidad || '';
     form.querySelector('#modalMaterial-rendimiento').value = material.rendimiento ?? '';
     form.querySelector('#modalMaterial-costo').value = material.costo ?? '';
     form.querySelector('#modalMaterial-minimo').value = material.stock_minimo ?? material.stockMinimo ?? '';
-    form.querySelector('#modalMaterial-marca').value = material.marca || '';
     form.querySelector('#modalMaterial-descripcion').value = material.descripcion || '';
+  } else if (categorySelect) {
+    categorySelect.onchange = updateGeneratedCode;
+    if (categorySelect.value) {
+      await updateGeneratedCode();
+    }
   }
 
   form.dataset.endpoint = endpoint;
@@ -1584,22 +1810,32 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       const payload = {};
       const formData = new FormData(form);
       for (const [key, value] of formData.entries()) {
-        if (key !== 'id') payload[key] = value;
+        if (key !== 'id' && key !== 'codigo') payload[key] = value;
       }
+
+      const categorySelect = form.querySelector('#modalMaterial-categoria');
+      if (categorySelect && categorySelect.value) {
+        payload.id_categoria = categorySelect.value;
+        const selectedOption = categorySelect.selectedOptions[0];
+        if (selectedOption && selectedOption.textContent) {
+          payload.categoria = selectedOption.textContent.trim();
+        }
+      }
+
+      payload.codigo = (form.querySelector('#modalMaterial-codigo')?.value || '').trim();
 
       const isCreating = !materialId;
       const registrarInventario = payload.registrar_inventario === '1' || payload.registrar_inventario === true;
-      
+
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        payload.id_usuario = currentUser.id_usuario ?? currentUser.id ?? '';
+      }
+
       if (!isCreating) {
         delete payload.registrar_inventario;
         delete payload.stock_inicial;
         delete payload.referencia_inventario;
-      } else if (registrarInventario) {
-        /* Incluir el ID del usuario actual cuando se crea un material con stock inicial */
-        const currentUser = await getCurrentUser();
-        if (currentUser) {
-          payload.id_usuario = currentUser.id_usuario ?? currentUser.id ?? '';
-        }
       }
 
       const requestUrl = isCreating ? endpoint : `${endpoint}/${materialId}`;
@@ -1634,17 +1870,22 @@ async function loadMaterialCategories(selectedValue = '') {
 
   try {
     const categories = await apiRequest('materiales/categorias');
-    const options = categories.map((category) => `<option value="${escapeAttribute(category.nombre)}">${category.nombre}</option>`).join('');
+    const options = categories.map((category) => `<option value="${escapeAttribute(String(category.id ?? category.id_categoria ?? ''))}" data-prefijo="${escapeAttribute(String(category.prefijo_codigo || ''))}" data-nombre="${escapeAttribute(category.nombre || '')}">${category.nombre}</option>`).join('');
 
     if (select) {
       const currentValue = selectedValue || select.value;
       select.innerHTML = `<option value="">Seleccione una categoría</option>${options}`;
-      if (currentValue) select.value = currentValue;
+      const targetValue = currentValue && categories.some((category) => String(category.id ?? category.id_categoria) === String(currentValue))
+        ? String(currentValue)
+        : categories.find((category) => String(category.nombre) === String(currentValue))
+          ? String(categories.find((category) => String(category.nombre) === String(currentValue)).id ?? categories.find((category) => String(category.nombre) === String(currentValue)).id_categoria)
+          : '';
+      if (targetValue) select.value = targetValue;
     }
 
     if (categorySelect) {
       categorySelect.innerHTML = '<option value="">Nueva categoría</option>' + categories
-        .map((category) => `<option value="${category.id}" data-nombre="${escapeAttribute(category.nombre)}">${category.nombre}</option>`)
+        .map((category) => `<option value="${category.id}" data-nombre="${escapeAttribute(category.nombre || '')}" data-prefijo="${escapeAttribute(String(category.prefijo_codigo || ''))}">${category.nombre}</option>`)
         .join('');
     }
 
@@ -1686,9 +1927,10 @@ async function openMaterialCategoriesModal() {
   const form = document.getElementById('formCategoriasMaterial');
   const select = document.getElementById('categoriaMaterial-lista');
   const input = document.getElementById('categoriaMaterial-nombre');
+  const prefixInput = document.getElementById('categoriaMaterial-prefijo');
   const btnGuardar = document.getElementById('btnGuardarCategoria');
   const btnEliminar = document.getElementById('btnEliminarCategoria');
-  if (!modal || !form || !select || !input || !btnGuardar || !btnEliminar) return;
+  if (!modal || !form || !select || !input || !prefixInput || !btnGuardar || !btnEliminar) return;
 
   clearFormErrors();
   form.reset();
@@ -1697,6 +1939,7 @@ async function openMaterialCategoriesModal() {
   select.onchange = () => {
     const selectedOption = select.selectedOptions[0];
     input.value = selectedOption && selectedOption.dataset.nombre ? selectedOption.dataset.nombre : '';
+    prefixInput.value = selectedOption && selectedOption.dataset.prefijo ? selectedOption.dataset.prefijo : '';
     btnEliminar.disabled = !select.value;
   };
   btnEliminar.disabled = true;
@@ -1705,15 +1948,20 @@ async function openMaterialCategoriesModal() {
     try {
       clearFormErrors();
       const nombre = input.value.trim();
+      const prefijoCodigo = prefixInput.value.trim();
       if (!nombre) {
         applyFieldError(form, 'categoria_nombre', 'El nombre de la categoría es obligatorio.');
+        return;
+      }
+      if (!prefijoCodigo) {
+        applyFieldError(form, 'categoria_prefijo', 'El prefijo del código es obligatorio.');
         return;
       }
 
       const id = select.value;
       const response = await apiRequest(id ? `materiales/categorias/${id}` : 'materiales/categorias', {
         method: id ? 'PUT' : 'POST',
-        body: { nombre }
+        body: { nombre, prefijo_codigo: prefijoCodigo }
       });
 
       showToast(response?.message || 'Categoría guardada correctamente.', 'success');
@@ -1785,6 +2033,11 @@ function setupClienteModal() {
           if (key !== 'id') data[key] = value;
         }
 
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          data.id_usuario = currentUser.id_usuario ?? currentUser.id ?? '';
+        }
+
         const response = await apiRequest('clientes', {
           method: 'POST',
           body: data
@@ -1848,6 +2101,11 @@ function openClienteEditModal(cliente, id, endpoint) {
       const data = {};
       for (const [key, value] of payload.entries()) {
         if (key !== 'id') data[key] = value;
+      }
+
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        data.id_usuario = currentUser.id_usuario ?? currentUser.id ?? '';
       }
 
       // Determinar si es crear o actualizar
@@ -1970,6 +2228,7 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
   const projectMaterialsList = form.querySelector('#listaMaterialesProyecto');
   if (projectMaterialsList) {
     projectMaterialsList.innerHTML = '';
+    ensureProjectMaterialTable(projectMaterialsList);
   }
 
   if (proyecto?.id_proyecto || proyecto?.id) {
@@ -1977,21 +2236,22 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
     try {
       const materialRows = await apiRequest(`proyectos/${projectId}/materiales`);
       const rows = Array.isArray(materialRows) ? materialRows : [];
+      const body = projectMaterialsList?.querySelector('.tabla-materiales-proyecto__body');
       rows.forEach((row) => {
         const item = document.createElement('div');
-        item.className = 'item-material-proyecto';
+        item.className = 'tabla-materiales-proyecto__row';
         item.dataset.projectMaterialItem = 'true';
         item.dataset.materialId = String(row.id_material ?? '');
         item.dataset.cantidad = String(row.cantidad_calculada ?? 0);
         item.dataset.precioUnitario = String(row.precio_unitario ?? 0);
         item.innerHTML = `
-          <span>${escapeHtml(row.material_nombre || 'Material')}</span>
+          <span class="material-proyecto-nombre">${escapeHtml(row.material_nombre || 'Material')}</span>
           <span class="material-proyecto-cantidad">${Number(row.cantidad_calculada || 0).toFixed(2)} un.</span>
           <span class="material-proyecto-subtotal">Q ${Number(row.costo_subtotal || 0).toFixed(2)}</span>
           <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-material">Quitar</button>
         `;
         item.querySelector('.btn-quitar-material').onclick = () => item.remove();
-        if (projectMaterialsList) projectMaterialsList.appendChild(item);
+        if (body) body.appendChild(item);
       });
     } catch (_error) {
       console.warn('No se pudieron cargar los materiales del proyecto para editar:', _error.message);

@@ -173,12 +173,16 @@
                   maxlength="20"
                   placeholder="Ej. MAT-001"
                   required
+                  readonly
                 />
                 <small
                   class="error-formulario"
                   id="error-codigo"
                   style="display: none"
                 ></small>
+                <small class="text-muted" style="display: block; margin-top: 4px; color: #6c757d;">
+                  Se genera automáticamente según la categoría seleccionada.
+                </small>
               </div>
 
               <div class="grupo-formulario grupo-formulario--full">
@@ -266,16 +270,6 @@
                   min="0"
                   step="1"
                   placeholder="0"
-                />
-              </div>
-
-              <div class="grupo-formulario">
-                <label for="modalMaterial-marca">Marca / proveedor</label>
-                <input
-                  id="modalMaterial-marca"
-                  name="marca"
-                  type="text"
-                  placeholder="Marca o proveedor"
                 />
               </div>
 
@@ -406,6 +400,22 @@
                 <small
                   class="error-formulario"
                   id="error-categoria-nombre"
+                  style="display: none"
+                ></small>
+              </div>
+              <div class="grupo-formulario grupo-formulario--full">
+                <label for="categoriaMaterial-prefijo">Prefijo del código *</label>
+                <input
+                  id="categoriaMaterial-prefijo"
+                  name="prefijo_codigo"
+                  type="text"
+                  maxlength="10"
+                  placeholder="Ej. HER"
+                  required
+                />
+                <small
+                  class="error-formulario"
+                  id="error-categoria-prefijo"
                   style="display: none"
                 ></small>
               </div>
