@@ -60,6 +60,10 @@
           </div>
 
           <div class="cuadricula-contenido">
+            <article class="panel pipeline-panel">
+              <div class="pipeline-proyectos" id="pipelineProyectos"></div>
+            </article>
+
             <article class="panel">
               <div class="encabezado-panel">
                 <div>
@@ -94,13 +98,18 @@
                       <th>Proyecto</th>
                       <th>Cliente</th>
                       <th>Inicio</th>
+                      <th>Largo</th>
+                      <th>Altura</th>
+                      <th>Área</th>
+                      <th>Tipo</th>
+                      <th>Presupuesto</th>
                       <th>Estado</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr class="empty-table">
-                      <td colspan="5">No hay proyectos registrados.</td>
+                      <td colspan="10">No hay proyectos registrados.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -112,6 +121,21 @@
     </div>
 
     <div class="contenedor-alertas" aria-live="polite"></div>
+
+    <div class="modal fade" id="modalDetalleProyecto" tabindex="-1" aria-labelledby="modalDetalleProyectoLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalDetalleProyectoLabel">Detalle del proyecto</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body" id="detalleProyectoContent"></div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="modal fade" id="modalEditarProyecto" tabindex="-1" aria-labelledby="modalEditarProyectoLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-scrollable modal-lg">
@@ -153,25 +177,15 @@
               </div>
 
               <div class="grupo-formulario">
-                <label for="modalProyecto-fin">Fecha estimada de finalización</label>
-                <input id="modalProyecto-fin" name="fecha_fin" type="date" />
-              </div>
-
-              <div class="grupo-formulario">
                 <label for="modalProyecto-largo">Largo (m) *</label>
                 <input id="modalProyecto-largo" name="largo" type="number" min="0.01" step="0.01" required />
                 <small class="error-formulario" id="error-largo" style="display: none"></small>
               </div>
 
               <div class="grupo-formulario">
-                <label for="modalProyecto-ancho">Ancho (m) *</label>
-                <input id="modalProyecto-ancho" name="ancho" type="number" min="0.01" step="0.01" required />
-                <small class="error-formulario" id="error-ancho" style="display: none"></small>
-              </div>
-
-              <div class="grupo-formulario">
-                <label for="modalProyecto-altura">Altura (m)</label>
-                <input id="modalProyecto-altura" name="altura" type="number" min="0" step="0.01" />
+                <label for="modalProyecto-altura">Altura (m) *</label>
+                <input id="modalProyecto-altura" name="altura" type="number" min="0.01" step="0.01" required />
+                <small class="error-formulario" id="error-altura" style="display: none"></small>
               </div>
 
               <div class="grupo-formulario">
@@ -185,14 +199,21 @@
                 </select>
               </div>
 
-              <div class="grupo-formulario">
-                <label for="modalProyecto-presupuesto">Presupuesto estimado (Q)</label>
-                <input id="modalProyecto-presupuesto" name="presupuesto" type="number" min="0" step="0.01" placeholder="0.00" />
+              <div class="grupo-formulario grupo-formulario--full">
+                <label>Materiales del proyecto</label>
+                <div class="materiales-proyecto-control">
+                  <select id="proyecto-material-select">
+                    <option value="">Seleccione un material</option>
+                  </select>
+                  <input id="proyecto-material-cantidad" type="number" min="0.01" step="0.01" placeholder="Cantidad" />
+                  <button type="button" class="boton boton-principal" id="btnAgregarMaterialProyecto">Agregar</button>
+                </div>
+                <div id="listaMaterialesProyecto" class="lista-materiales-proyecto"></div>
               </div>
 
               <div class="grupo-formulario grupo-formulario--full">
-                <label for="modalProyecto-notas">Descripción y observaciones</label>
-                <textarea id="modalProyecto-notas" name="notas" rows="3" placeholder="Detalle del trabajo a realizar"></textarea>
+                <label for="modalProyecto-descripcion">Descripción y observaciones</label>
+                <textarea id="modalProyecto-descripcion" name="descripcion" rows="3" placeholder="Detalle del trabajo a realizar"></textarea>
               </div>
             </form>
           </div>

@@ -1,10 +1,10 @@
 /* Base y variables */
 :root {
-  --primary: #102f46;
-  --primary-dark: #0b2235;
-  --primary-soft: #e9eef3;
-  --sidebar-bg: linear-gradient(180deg, #102f46 0%, #0b2235 100%);
-  --sidebar-text: #d7e8ec;
+  --primary: #d96d5c;
+  --primary-dark: #c85e4b;
+  --primary-soft: #fce7e4;
+  --sidebar-bg: linear-gradient(135deg, #e76e68 0%, #e36f67 55%, #d85f54 100%);
+  --sidebar-text: #fff2ef;
   --accent: #e66f67;
   --accent-soft: #fce7e4;
   --ink: #1a2c3d;
@@ -118,6 +118,126 @@ body::after {
   background: radial-gradient(circle, rgba(204, 122, 36, .07), transparent 66%);
   height: 360px;
   width: 360px;
+}
+
+.pipeline-panel {
+  margin-bottom: 24px;
+  padding: 18px 18px 20px;
+}
+
+.pipeline-proyectos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 22px;
+  align-items: stretch;
+}
+
+.pipeline-column {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(16, 47, 70, 0.18);
+  min-height: 340px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pipeline-column--pending {
+  background: linear-gradient(180deg, rgba(47, 110, 176, 0.92), rgba(37, 84, 130, 0.96));
+  color: #fff;
+}
+
+.pipeline-column--progress {
+  background: linear-gradient(180deg, #eea347, #df8b2d);
+  color: #fff;
+}
+
+.pipeline-column--done {
+  background: linear-gradient(180deg, rgba(63, 146, 89, 0.95), rgba(45, 112, 74, 0.95));
+  color: #fff;
+}
+
+.pipeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px 18px 14px;
+  font-weight: 800;
+  font-size: clamp(1.15rem, 2vw, 2rem);
+  letter-spacing: -0.03em;
+  min-height: 86px;
+}
+
+.pipeline-header__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 1.2rem;
+}
+
+.pipeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 14px 14px;
+  flex: 1;
+}
+
+.pipeline-item {
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: inset 0 0 0 1px rgba(13, 43, 65, 0.08);
+}
+
+.pipeline-item__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  line-height: 1.25;
+}
+
+.pipeline-item__meta {
+  color: var(--texto-suave);
+  font-size: 0.92rem;
+}
+
+.pipeline-empty {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px dashed rgba(255, 255, 255, 0.38);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70px;
+  padding: 12px;
+}
+
+.pipeline-status-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: var(--texto-suave);
+  font-weight: 700;
+}
+
+.pipeline-status-select {
+  width: 100%;
+  border: 1px solid rgba(16, 47, 70, 0.12);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0.6rem 0.7rem;
 }
 
 a {
@@ -737,6 +857,23 @@ boton {
 .grupo-formulario textarea {
   min-height: auto;
   resize: vertical;
+}
+
+.materiales-proyecto-control {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.materiales-proyecto-control > select,
+.materiales-proyecto-control > input {
+  flex: 1 1 220px;
+}
+
+.materiales-proyecto-control > button {
+  flex-shrink: 0;
 }
 
 .grupo-formulario input:focus,

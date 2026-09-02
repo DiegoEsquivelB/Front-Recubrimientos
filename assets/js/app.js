@@ -310,27 +310,7 @@ function setTableSearches() {
 async function setupCalculatorModule() {
   const page = window.location.pathname.split('/').pop() || 'index.html';
   if (page !== 'calculo-materiales.html') return;
-  await Promise.all([
-    loadCalculatorProjects(),
-    loadCalculatorMaterials()
-  ]);
-}
-
-async function loadCalculatorProjects() {
-  const select = document.getElementById('calculo-proyecto');
-  if (!select) return;
-
-  try {
-    const response = await apiRequest('proyectos');
-    const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
-    select.innerHTML = '<option value="">Seleccione un proyecto (opcional)</option>' + items.map((project) => {
-      const id = project.id_proyecto ?? project.id ?? '';
-      const name = project.nombre || project.nombre_proyecto || 'Proyecto sin nombre';
-      return `<option value="${escapeAttribute(id)}">${escapeHtml(name)}</option>`;
-    }).join('');
-  } catch (error) {
-    console.warn('No se pudieron cargar los proyectos para el cálculo:', error.message);
-  }
+  await loadCalculatorMaterials();
 }
 
 async function loadCalculatorMaterials() {
@@ -369,10 +349,7 @@ function setCalculator() {
     const materialName = materialSelect && materialSelect.selectedIndex > 0
       ? materialSelect.options[materialSelect.selectedIndex].text
       : (data.get('material') || 'Material');
-    const projectName = form.querySelector('#calculo-proyecto') && form.querySelector('#calculo-proyecto').selectedIndex > 0
-      ? form.querySelector('#calculo-proyecto').options[form.querySelector('#calculo-proyecto').selectedIndex].text
-      : 'Sin proyecto';
-    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo en el proyecto.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${materialName}</strong></div><div><span>Proyecto</span><strong>${projectName}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
+    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${materialName}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
     output.querySelector('[data-save-calculation]').addEventListener('click', () => showToast('Cálculo preparado y listo para guardar mediante la API.', 'success'));
   });
 }
@@ -705,6 +682,41 @@ async function apiRequest(endpoint, options = {}) {
   }
 }
 
+function normalizeDateValue(value) {
+  if (value === null || value === undefined || value === '') return value;
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const isoDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDateMatch) {
+    return trimmed;
+  }
+
+  const europeanDateMatch = trimmed.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+  if (europeanDateMatch) {
+    const [, day, month, year] = europeanDateMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const isoDateWithTimeMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T.*$/);
+  if (isoDateWithTimeMatch) {
+    return `${isoDateWithTimeMatch[1]}-${isoDateWithTimeMatch[2]}-${isoDateWithTimeMatch[3]}`;
+  }
+
+  const parsedDate = new Date(trimmed);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    const localDate = new Date(parsedDate.getTime() - (parsedDate.getTimezoneOffset() * 60000));
+    return localDate.toISOString().slice(0, 10);
+  }
+
+  return trimmed;
+}
+
 function objectFromForm(form) {
   const formData = new FormData(form);
   const payload = {};
@@ -714,6 +726,127 @@ function objectFromForm(form) {
   });
 
   return payload;
+}
+
+function normalizeProjectPayload(payload = {}) {
+  const source = { ...payload };
+  const normalized = {};
+
+  const optionalDateKeys = ['fecha_inicio'];
+  const optionalTextKeys = ['tipo', 'altura', 'descripcion'];
+  const numericKeys = ['largo', 'altura', 'presupuesto', 'costo_estimado', 'area_m2'];
+  const clientIdKeys = ['cliente_id', 'id_cliente'];
+
+  const mapKey = (key, replacementKey) => {
+    if (source[key] !== undefined && source[replacementKey] === undefined) {
+      source[replacementKey] = source[key];
+    }
+  };
+
+  mapKey('nombre', 'nombre_proyecto');
+  mapKey('fechaInicio', 'fecha_inicio');
+  mapKey('presupuesto', 'costo_estimado');
+  mapKey('costo_estimado', 'presupuesto');
+
+  if (source.fecha_inicio !== undefined) {
+    source.fecha_inicio = normalizeDateValue(source.fecha_inicio);
+  }
+
+  if (source.fechaInicio !== undefined) {
+    source.fechaInicio = normalizeDateValue(source.fechaInicio);
+  }
+
+  if (source.id_cliente === undefined && source.cliente_id !== undefined) {
+    source.id_cliente = source.cliente_id;
+  }
+
+  if (source.cliente_id === undefined && source.id_cliente !== undefined) {
+    source.cliente_id = source.id_cliente;
+  }
+
+  if (source.largo !== undefined && source.altura !== undefined && source.largo !== '' && source.altura !== '') {
+    const largo = Number(source.largo ?? 0);
+    const altura = Number(source.altura ?? 0);
+    if (!Number.isNaN(largo) && !Number.isNaN(altura) && largo > 0 && altura > 0) {
+      source.area_m2 = Number((largo * altura).toFixed(2));
+    }
+  }
+
+  if (source.area_m2 === undefined || source.area_m2 === '') {
+    const largo = Number(source.largo ?? 0);
+    const altura = Number(source.altura ?? 0);
+    if (!Number.isNaN(largo) && !Number.isNaN(altura) && (largo > 0 || altura > 0)) {
+      source.area_m2 = Number((largo * altura).toFixed(2));
+    }
+  }
+
+  const allowedKeys = ['id_cliente', 'id_usuario', 'usuario_id', 'nombre_proyecto', 'estado', 'fecha_inicio', 'area_m2', 'largo', 'altura', 'tipo', 'costo_estimado', 'presupuesto', 'descripcion'];
+
+  Object.entries(source).forEach(([key, value]) => {
+    if (key === 'id' || key === 'ancho' || key === 'notas') return;
+    if (!allowedKeys.includes(key)) return;
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') {
+        if (optionalDateKeys.includes(key) || optionalTextKeys.includes(key) || key === 'costo_estimado' || key === 'presupuesto' || key === 'area_m2') {
+          return;
+        }
+        if (clientIdKeys.includes(key)) {
+          return;
+        }
+      }
+      value = trimmed;
+    }
+
+    if (clientIdKeys.includes(key) && value !== '' && value !== null && value !== undefined) {
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) value = parsed;
+    }
+
+    if (numericKeys.includes(key) && value !== '' && value !== null && value !== undefined) {
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) {
+        value = parsed;
+      }
+    }
+
+    if (key === 'nombre_proyecto' && (!value || String(value).trim() === '')) {
+      return;
+    }
+
+    normalized[key] = value;
+  });
+
+  if (normalized.nombre_proyecto === undefined && source.nombre_proyecto !== undefined) {
+    normalized.nombre_proyecto = source.nombre_proyecto;
+  }
+
+  if (normalized.id_cliente === undefined && source.id_cliente !== undefined) {
+    normalized.id_cliente = source.id_cliente;
+  }
+
+  if (normalized.costo_estimado === undefined && source.costo_estimado !== undefined) {
+    normalized.costo_estimado = source.costo_estimado;
+  }
+
+  if (normalized.presupuesto === undefined && source.presupuesto !== undefined) {
+    normalized.presupuesto = source.presupuesto;
+  }
+
+  if (normalized.area_m2 === undefined && source.area_m2 !== undefined) {
+    normalized.area_m2 = source.area_m2;
+  }
+
+  if (normalized.id_usuario === undefined && source.id_usuario !== undefined) {
+    normalized.id_usuario = source.id_usuario;
+  }
+
+  if (normalized.usuario_id === undefined && source.usuario_id !== undefined) {
+    normalized.usuario_id = source.usuario_id;
+  }
+
+  return normalized;
 }
 
 async function loadDashboardData() {
@@ -744,6 +877,188 @@ async function loadDashboardData() {
   } catch (error) {
     console.warn('Dashboard no disponible:', error.message);
   }
+}
+
+function obtenerMaterialesProyecto(form) {
+  const container = form.querySelector('#listaMaterialesProyecto');
+  if (!container) return [];
+
+  return Array.from(container.querySelectorAll('[data-project-material-item]')).map((item) => {
+    const idMaterial = item.dataset.materialId;
+    const cantidad = Number(item.dataset.cantidad || 0);
+
+    if (!idMaterial || !Number.isFinite(cantidad) || cantidad <= 0) {
+      return null;
+    }
+
+    return {
+      id_material: Number(idMaterial),
+      cantidad,
+      precio_unitario: Number(item.dataset.precioUnitario || 0)
+    };
+  }).filter(Boolean);
+}
+
+function cargarOpcionesMaterialesProyecto(select) {
+  if (!select) return;
+
+  apiRequest('materiales')
+    .then((response) => {
+      const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+      select.innerHTML = '<option value="">Seleccione un material</option>' + items.map((material) => {
+        const id = material.id_material ?? material.id ?? '';
+        const name = material.nombre || 'Material sin nombre';
+        const precio = Number(material.precio_unitario ?? material.precio ?? 0);
+        return `<option value="${escapeAttribute(id)}" data-precio="${escapeAttribute(String(precio))}">${escapeHtml(name)} - Q ${Number(precio).toFixed(2)}</option>`;
+      }).join('');
+    })
+    .catch((error) => {
+      console.warn('No se pudieron cargar los materiales para el proyecto:', error.message);
+    });
+}
+
+function bindProjectMaterialButtons(form) {
+  const select = form.querySelector('#proyecto-material-select');
+  const cantidadInput = form.querySelector('#proyecto-material-cantidad');
+  const addButton = form.querySelector('#btnAgregarMaterialProyecto');
+  const list = form.querySelector('#listaMaterialesProyecto');
+
+  if (!select || !cantidadInput || !addButton || !list) return;
+
+  cargarOpcionesMaterialesProyecto(select);
+
+  addButton.onclick = () => {
+    const materialId = Number(select.value || 0);
+    const cantidad = Number(cantidadInput.value || 0);
+
+    if (!materialId || !Number.isFinite(cantidad) || cantidad <= 0) {
+      showToast('Seleccione un material y una cantidad válida.', 'error');
+      return;
+    }
+
+    const selectedOption = select.options[select.selectedIndex];
+    const nombre = selectedOption ? selectedOption.text.replace(/\s*-\s*Q\s*[0-9.]+/i, '') : 'Material';
+    const precio = Number(selectedOption?.dataset?.precio || 0);
+
+    const existingItem = Array.from(list.querySelectorAll('[data-project-material-item]')).find((item) => item.dataset.materialId === String(materialId));
+    if (existingItem) {
+      const newCantidad = Number(existingItem.dataset.cantidad || 0) + cantidad;
+      existingItem.dataset.cantidad = String(newCantidad);
+      existingItem.querySelector('.material-proyecto-cantidad').textContent = `${newCantidad.toFixed(2)} un.`;
+      existingItem.querySelector('.material-proyecto-subtotal').textContent = `Q ${(newCantidad * precio).toFixed(2)}`;
+      cantidadInput.value = '';
+      select.selectedIndex = 0;
+      return;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'item-material-proyecto';
+    row.dataset.projectMaterialItem = 'true';
+    row.dataset.materialId = String(materialId);
+    row.dataset.cantidad = String(cantidad);
+    row.dataset.precioUnitario = String(precio);
+    row.innerHTML = `
+      <span>${escapeHtml(nombre)}</span>
+      <span class="material-proyecto-cantidad">${cantidad.toFixed(2)} un.</span>
+      <span class="material-proyecto-subtotal">Q ${(cantidad * precio).toFixed(2)}</span>
+      <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-material">Quitar</button>
+    `;
+
+    row.querySelector('.btn-quitar-material').onclick = () => row.remove();
+    list.appendChild(row);
+    cantidadInput.value = '';
+    select.selectedIndex = 0;
+  };
+}
+
+function bindProjectPipelineStatusChanges() {
+  const pipeline = document.getElementById('pipelineProyectos');
+  if (!pipeline) return;
+
+  pipeline.querySelectorAll('.pipeline-status-select').forEach((select) => {
+    select.onchange = async () => {
+      const projectId = select.dataset.projectId;
+      const nextStatus = select.value;
+
+      if (!projectId || !nextStatus) return;
+
+      try {
+        await apiRequest(`proyectos/${projectId}`, {
+          method: 'PUT',
+          body: { estado: nextStatus }
+        });
+        showToast('Estado del proyecto actualizado.', 'success');
+        await loadCrudLists();
+      } catch (error) {
+        showToast(error.message || 'No se pudo actualizar el estado del proyecto.', 'error');
+      }
+    };
+  });
+}
+
+function renderProjectPipeline(items = []) {
+  const pipeline = document.getElementById('pipelineProyectos');
+  if (!pipeline) return;
+
+  const groups = {
+    Pendiente: [],
+    'En proceso': [],
+    Finalizado: []
+  };
+
+  items.forEach((item) => {
+    const estado = item.estado || 'Pendiente';
+    const safeState = estado === 'En proceso' ? 'En proceso' : (estado === 'Finalizado' ? 'Finalizado' : 'Pendiente');
+    if (!groups[safeState]) {
+      groups.Pendiente.push(item);
+      return;
+    }
+    groups[safeState].push(item);
+  });
+
+  const configColumns = [
+    { key: 'Pendiente', label: 'Pendientes', icon: '⚠', theme: 'pending' },
+    { key: 'En proceso', label: 'En Proceso', icon: '⚙', theme: 'progress' },
+    { key: 'Finalizado', label: 'Finalizados', icon: '✓', theme: 'done' }
+  ];
+
+  pipeline.innerHTML = configColumns.map((column) => {
+    const itemsColumn = groups[column.key] || [];
+    const cards = itemsColumn.length
+      ? itemsColumn.map((item) => {
+          const idValue = findRecordId(item);
+          const nombre = item.nombre || item.nombre_proyecto || 'Proyecto sin nombre';
+          const cliente = item.cliente_nombre || item.cliente || item.nombre_cliente || 'Sin cliente';
+          const currentStatus = item.estado || 'Pendiente';
+          return `
+            <div class="pipeline-item">
+              <div class="pipeline-item__title">${escapeHtml(nombre)}</div>
+              <div class="pipeline-item__meta">${escapeHtml(cliente)}</div>
+              <label class="pipeline-status-label">
+                <span>Estado</span>
+                <select class="pipeline-status-select" data-project-id="${idValue ?? ''}">
+                  <option value="Pendiente" ${currentStatus === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                  <option value="En proceso" ${currentStatus === 'En proceso' ? 'selected' : ''}>En proceso</option>
+                  <option value="Finalizado" ${currentStatus === 'Finalizado' ? 'selected' : ''}>Finalizado</option>
+                </select>
+              </label>
+            </div>
+          `;
+        }).join('')
+      : '<div class="pipeline-empty">Sin proyectos</div>';
+
+    return `
+      <div class="pipeline-column pipeline-column--${column.theme}">
+        <div class="pipeline-header">
+          <span class="pipeline-header__icon">${column.icon}</span>
+          <span>${column.label}</span>
+        </div>
+        <div class="pipeline-list">${cards}</div>
+      </div>
+    `;
+  }).join('');
+
+  bindProjectPipelineStatusChanges();
 }
 
 async function loadCrudLists() {
@@ -820,26 +1135,42 @@ async function loadCrudLists() {
     }
 
     if (page === 'proyectos.html') {
+      renderProjectPipeline(items);
+
       table.querySelector('tbody').innerHTML = items.map((item) => {
         const record = JSON.stringify(item);
         const idValue = findRecordId(item);
         const nombre = item.nombre || item.nombre_proyecto || 'Sin nombre';
         const cliente = item.cliente_nombre || item.cliente || item.nombre_cliente || 'Sin cliente';
-        const fecha = item.fecha_inicio || item.fechaInicio || '—';
+        const fecha = formatDateValue(item.fecha_inicio || item.fechaInicio || '—');
+        const area = Number(item.area_m2 ?? item.largo ?? 0);
+        const altura = item.altura ?? '—';
+        const largo = altura !== '—' && area > 0 && Number(altura) > 0
+          ? Number((area / Number(altura)).toFixed(2))
+          : (item.largo ?? item.area_m2 ?? '—');
+        const tipo = item.tipo || '—';
+        const presupuesto = item.presupuesto ?? item.costo_estimado ?? '—';
         const estado = item.estado || 'Pendiente';
         return `
           <tr>
             <td>${escapeHtml(nombre)}</td>
             <td>${escapeHtml(cliente)}</td>
             <td>${escapeHtml(fecha)}</td>
+            <td>${escapeHtml(String(largo))}</td>
+            <td>${escapeHtml(String(altura))}</td>
+            <td>${escapeHtml(String(Number(area) > 0 ? Number(area).toFixed(2) : '—'))} ${Number(area) > 0 ? 'm²' : ''}</td>
+            <td>${escapeHtml(tipo)}</td>
+            <td>${presupuesto === '—' ? '—' : `Q ${Number(presupuesto).toFixed(2)}`}</td>
             <td>${escapeHtml(estado)}</td>
             <td>
-              <button class="boton boton-transparente" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}'>Editar</button>
-              <button class="boton boton-transparente boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}">Eliminar</button>
+              <button class="boton boton-icono" type="button" data-view-proyecto-id="${idValue ?? ''}" data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
+              <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
+              <button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
             </td>
           </tr>
         `;
       }).join('');
+      bindViewProyectoButtons(table);
       bindEditButtons(table);
       bindDeleteButtons(table);
       return;
@@ -970,6 +1301,11 @@ function bindEditButtons(table) {
           return;
         }
 
+        if (window.location.pathname.includes('proyectos.html')) {
+          openProyectoModal(item, id, endpoint);
+          return;
+        }
+
         // Fallback para otros módulos
         const form = document.querySelector('form[data-form]');
         if (!form) return;
@@ -1035,6 +1371,112 @@ function bindViewFichaButtons(table) {
       showClienteFicha(record);
     };
   });
+}
+
+function bindViewProyectoButtons(table) {
+  table.querySelectorAll('[data-view-proyecto-id]').forEach((boton) => {
+    boton.onclick = () => {
+      const record = parseRecordData(boton.dataset.record);
+      if (!record) return;
+      showProyectoDetalle(record);
+    };
+  });
+}
+
+async function showProyectoDetalle(proyecto) {
+  const modal = document.getElementById('modalDetalleProyecto');
+  const content = document.getElementById('detalleProyectoContent');
+  if (!modal || !content) return;
+
+  const nombre = proyecto.nombre || proyecto.nombre_proyecto || 'Sin nombre';
+  const cliente = proyecto.cliente_nombre || proyecto.cliente || proyecto.nombre_cliente || 'Sin cliente';
+  const estado = proyecto.estado || 'Pendiente';
+  const fechaInicio = formatDateValue(proyecto.fecha_inicio || proyecto.fechaInicio || '—');
+  const area = proyecto.area_m2 ?? proyecto.largo ?? proyecto.area ?? '—';
+  const tipo = proyecto.tipo || '—';
+  const presupuesto = proyecto.presupuesto ?? proyecto.costo_estimado ?? '—';
+  const descripcion = proyecto.descripcion || 'Sin observaciones';
+  const projectId = proyecto.id_proyecto ?? proyecto.id ?? proyecto.idProyecto ?? '';
+
+  let materiales = Array.isArray(proyecto.materiales) ? proyecto.materiales : [];
+
+  if (projectId && materiales.length === 0) {
+    try {
+      materiales = await apiRequest(`proyectos/${projectId}/materiales`);
+    } catch (_error) {
+      materiales = [];
+    }
+  }
+
+  const totalMateriales = materiales.reduce((sum, item) => sum + Number(item.costo_subtotal ?? 0), 0);
+
+  const materialesHtml = materiales.length
+    ? `
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Materiales:</label>
+        <div class="valor-ficha-cliente">
+          <ul class="lista-materiales-detalle">
+            ${materiales.map((item) => {
+              const nombreMaterial = item.material_nombre || item.nombre || 'Material';
+              const cantidad = Number(item.cantidad_calculada ?? item.cantidad ?? 0).toFixed(2);
+              const subtotal = Number(item.costo_subtotal ?? 0).toFixed(2);
+              return `<li><span>${escapeHtml(nombreMaterial)}</span><span>${cantidad} un.</span><span>Q ${subtotal}</span></li>`;
+            }).join('')}
+          </ul>
+        </div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Total estimado:</label>
+        <div class="valor-ficha-cliente">Q ${totalMateriales.toFixed(2)}</div>
+      </div>
+    `
+    : `
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Materiales:</label>
+        <div class="valor-ficha-cliente">Sin materiales asignados</div>
+      </div>
+    `;
+
+  content.innerHTML = `
+    <div class="contenido-ficha-cliente">
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Proyecto:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(nombre)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Cliente:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(cliente)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Estado:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(estado)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Fecha de inicio:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(fechaInicio)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Área:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(String(area))} m²</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Tipo:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(tipo)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Presupuesto:</label>
+        <div class="valor-ficha-cliente">${presupuesto === '—' ? '—' : `Q ${Number(presupuesto).toFixed(2)}`}</div>
+      </div>
+      ${materialesHtml}
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Descripción:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(descripcion)}</div>
+      </div>
+    </div>
+  `;
+
+  const bootstrapModal = new bootstrap.Modal(modal);
+  bootstrapModal.show();
 }
 
 function showClienteFicha(cliente) {
@@ -1510,11 +1952,50 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
 
   form.reset();
   form.querySelector('input[name="id"]').value = id || '';
+  form.dataset.projectUserId = proyecto ? (proyecto.id_usuario ?? proyecto.usuario_id ?? proyecto.idUsuario ?? proyecto.usuarioId ?? '') : '';
   clearFormErrors();
 
   const titleModal = document.getElementById('modalEditarProyectoLabel');
   if (titleModal) {
     titleModal.textContent = proyecto ? 'Editar proyecto' : 'Crear proyecto';
+  }
+
+  const estadoSelect = form.querySelector('select[name="estado"]');
+  if (estadoSelect) {
+    estadoSelect.disabled = true;
+  }
+
+  bindProjectMaterialButtons(form);
+
+  const projectMaterialsList = form.querySelector('#listaMaterialesProyecto');
+  if (projectMaterialsList) {
+    projectMaterialsList.innerHTML = '';
+  }
+
+  if (proyecto?.id_proyecto || proyecto?.id) {
+    const projectId = proyecto.id_proyecto ?? proyecto.id ?? '';
+    try {
+      const materialRows = await apiRequest(`proyectos/${projectId}/materiales`);
+      const rows = Array.isArray(materialRows) ? materialRows : [];
+      rows.forEach((row) => {
+        const item = document.createElement('div');
+        item.className = 'item-material-proyecto';
+        item.dataset.projectMaterialItem = 'true';
+        item.dataset.materialId = String(row.id_material ?? '');
+        item.dataset.cantidad = String(row.cantidad_calculada ?? 0);
+        item.dataset.precioUnitario = String(row.precio_unitario ?? 0);
+        item.innerHTML = `
+          <span>${escapeHtml(row.material_nombre || 'Material')}</span>
+          <span class="material-proyecto-cantidad">${Number(row.cantidad_calculada || 0).toFixed(2)} un.</span>
+          <span class="material-proyecto-subtotal">Q ${Number(row.costo_subtotal || 0).toFixed(2)}</span>
+          <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-material">Quitar</button>
+        `;
+        item.querySelector('.btn-quitar-material').onclick = () => item.remove();
+        if (projectMaterialsList) projectMaterialsList.appendChild(item);
+      });
+    } catch (_error) {
+      console.warn('No se pudieron cargar los materiales del proyecto para editar:', _error.message);
+    }
   }
 
   await loadProjectClients(proyecto ? (proyecto.cliente_id ?? proyecto.id_cliente ?? '') : '');
@@ -1523,14 +2004,17 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
     form.querySelector('input[name="nombre"]').value = proyecto.nombre || proyecto.nombre_proyecto || '';
     form.querySelector('select[name="cliente_id"]').value = proyecto.cliente_id ?? proyecto.id_cliente ?? '';
     form.querySelector('select[name="estado"]').value = proyecto.estado || 'Pendiente';
-    form.querySelector('input[name="fecha_inicio"]').value = proyecto.fecha_inicio || proyecto.fechaInicio || '';
-    form.querySelector('input[name="fecha_fin"]').value = proyecto.fecha_fin || proyecto.fechaFin || '';
+    form.querySelector('input[name="fecha_inicio"]').value = normalizeDateValue(proyecto.fecha_inicio || proyecto.fechaInicio || '');
     form.querySelector('input[name="largo"]').value = proyecto.largo ?? proyecto.area_largo ?? '';
-    form.querySelector('input[name="ancho"]').value = proyecto.ancho ?? proyecto.area_ancho ?? '';
     form.querySelector('input[name="altura"]').value = proyecto.altura ?? '';
     form.querySelector('select[name="tipo"]').value = proyecto.tipo || '';
-    form.querySelector('input[name="presupuesto"]').value = proyecto.presupuesto ?? proyecto.costo_estimado ?? '';
-    form.querySelector('textarea[name="notas"]').value = proyecto.notas || proyecto.descripcion || '';
+    const presupuestoInput = form.querySelector('input[name="presupuesto"]');
+    if (presupuestoInput) {
+      presupuestoInput.value = proyecto.presupuesto ?? proyecto.costo_estimado ?? '';
+    }
+    form.querySelector('textarea[name="descripcion"]').value = proyecto.descripcion ?? '';
+  } else {
+    form.querySelector('select[name="estado"]').value = 'Pendiente';
   }
 
   const btnGuardar = document.getElementById('btnGuardarProyecto');
@@ -1543,13 +2027,30 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
       }
 
       const projectId = form.querySelector('input[name="id"]').value;
-      const payload = {};
-      const formData = new FormData(form);
-      for (const [key, value] of formData.entries()) {
-        if (key !== 'id') payload[key] = value;
+      const payload = normalizeProjectPayload(objectFromForm(form));
+      const materialesSeleccionados = obtenerMaterialesProyecto(form);
+      if (materialesSeleccionados.length) {
+        payload.materiales = materialesSeleccionados;
+      }
+
+      if (!projectId) {
+        payload.estado = 'Pendiente';
       }
 
       const isCreating = !projectId;
+      const formUserId = form.dataset.projectUserId;
+      const currentUser = await getCurrentUser();
+      const resolvedUserId = payload.id_usuario ?? payload.usuario_id ?? formUserId ?? (currentUser ? (currentUser.id_usuario ?? currentUser.id ?? '') : '');
+
+      if (resolvedUserId) {
+        payload.id_usuario = resolvedUserId;
+        delete payload.usuario_id;
+      }
+
+      if (!resolvedUserId && !isCreating) {
+        throw new Error('No se pudo identificar el usuario responsable del proyecto.');
+      }
+
       const requestUrl = isCreating ? endpoint : `${endpoint}/${projectId}`;
       const method = isCreating ? 'POST' : 'PUT';
 
@@ -2134,15 +2635,25 @@ function formatInventoryNumber(value) {
 
 function formatDateValue(value) {
   if (!value) return '—';
+
   if (typeof value === 'string') {
-    const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (dateOnly) {
-      return `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1]}`;
+    const isoDate = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoDate) {
+      return `${isoDate[3]}-${isoDate[2]}-${isoDate[1]}`;
+    }
+
+    const europeanDate = value.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+    if (europeanDate) {
+      return `${europeanDate[1]}-${europeanDate[2]}-${europeanDate[3]}`;
     }
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat('es-GT').format(date);
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 }
 

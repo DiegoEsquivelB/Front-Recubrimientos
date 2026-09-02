@@ -1,69 +1,79 @@
-# Sistema de Recubrimientos Arquitectónicos
+# Front Proyecto G2
 
-Frontend del sistema de administración y gestión para recubrimientos arquitectónicos.
+Frontend web del sistema de gestión de recubrimientos arquitectónicos.
+
+## Funcionalidades
+
+- Login y cierre de sesión
+- Gestión de clientes
+- Gestión de usuarios
+- Gestión de materiales y categorías
+- Inventario con movimientos
+- Registro, edición y listado de proyectos
+- Cálculo de materiales por proyecto
+- Reportes y dashboard
 
 ## Estructura
 
-```
-proyecto/
-├── index.html                 # Panel principal
-├── login.html                 # Inicio de sesión
-├── modulos/                   # Vistas y formularios de cada módulo
+```text
+Front-ProyectoG2/
+├── index.html
+├── login.html
+├── modulos/
 │   ├── clientes.html
 │   ├── proyectos.html
-│   ├── calculo-materiales.html
-│   ├── inventario.html
 │   ├── materiales.html
+│   ├── inventario.html
+│   ├── calculo-materiales.html
 │   ├── reportes.html
 │   └── usuarios.html
-└── assets/
-    ├── css/estilos.css        # Estilos CSS3 compartidos
-    └── js/app.js              # Interacciones, validaciones y conexión con la API
+├── assets/
+│   ├── css/
+│   ├── img/
+│   └── js/
+│       └── app.js
+└── README.md
 ```
+
+## Cómo usarlo
+
+1. Inicia la API en `API-ProyectoG2`.
+2. Abre `login.html` en el navegador.
+3. Ingresa con:
+   - Usuario: `admin@recubrimientos.com`
+   - Contraseña: `admin123`
 
 ## Conexión con la API
 
-El frontend ya está preparado para consumir el backend desde la URL base configurada en `assets/js/app.js`.
+El frontend usa esta base por defecto en `assets/js/app.js`:
 
 ```js
 const API_CONFIG = {
-  baseUrl: 'http://localhost:3000/api',
-  tokenKey: 'recubrimientos_token'
+  baseUrl: `${window.location.protocol}//${window.location.hostname}:3000/api`
 };
 ```
 
-Ajusta esa URL si tu backend corre en otro puerto o dominio. Los módulos intentan consumir las rutas:
+Esto significa que, si el backend corre en `localhost:3000`, la UI se conecta automáticamente sin más configuración.
+
+Si la API se ejecuta en otra máquina o puerto, debes ajustar `API_CONFIG.baseUrl`.
+
+## Rutas que consume el frontend
 
 - `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
 - `GET /api/clientes`
 - `POST /api/clientes`
-- `GET /api/proyectos`
-- `POST /api/proyectos`
 - `GET /api/materiales`
 - `POST /api/materiales`
+- `GET /api/proyectos`
+- `POST /api/proyectos`
 - `GET /api/inventario`
-- `POST /api/inventario`
 - `GET /api/usuarios`
 - `POST /api/usuarios`
 
-## Rutas
+## Nota importante
 
-- `GET /api/health`
-- `POST /api/auth/login`
-- `POST /api/auth/usuarios`
-- `GET|POST /api/clientes`
-- `GET|PUT|DELETE /api/clientes/:id`
-- `GET|POST /api/materiales`
-- `GET|PUT|DELETE /api/materiales/:id`
-- `GET|POST /api/proyectos`
-- `GET|PUT|DELETE /api/proyectos/:id`
-- `GET|POST /api/inventario/movimientos`
-- `GET|PUT|DELETE /api/inventario/movimientos/:id`
+El frontend muestra los proyectos y otros listados solamente si la API está levantada y responde correctamente.
 
-## Uso
-
-Abre `login.html` en tu navegador. El sistema intenta conectarse a la API en cuanto se cargan los formularios y las pantallas de listado. Si el backend no está ejecutándose, la aplicación mantiene el comportamiento visual del prototipo y muestra un aviso en pantalla.
-
-## Usuario Predeterminado
-Usuario: admin@recubrimientos.com
-Contraseña: admin123
+Si la API falla, se imprime un error y la pantalla no puede cargar la información del módulo.
