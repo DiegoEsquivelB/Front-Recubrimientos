@@ -13,6 +13,22 @@ Frontend web del sistema de gestión de recubrimientos arquitectónicos.
 - Cálculo de materiales por proyecto
 - Reportes y dashboard
 
+## Roles y permisos
+
+- `Administrador`: puede acceder a todos los módulos, incluido Usuarios.
+- `Operador`: puede acceder al panel, Clientes, Proyectos, Cálculo de materiales, Inventario, Materiales y Reportes. El menú Usuarios se oculta y el acceso directo se redirige al panel.
+
+## Librerías del frontend
+
+El frontend utiliza HTML, CSS y JavaScript sin un framework adicional:
+
+- `Bootstrap 5.3.3` (CDN): modal de generación de reportes y componentes de interfaz.
+- `ExcelJS 4.4.0` (CDN): creación de archivos `.xlsx` con tablas estructuradas, estilos y filtros.
+- `jsPDF 2.5.1` (CDN): generación de archivos PDF desde el navegador.
+- `jsPDF-AutoTable 3.8.2` (CDN): renderizado de los datos del reporte como tabla dentro del PDF.
+
+Las librerías se cargan desde `jsdelivr.net` en [reportes.html](modulos/reportes.html). Se requiere conexión a internet para cargar Bootstrap, ExcelJS y jsPDF.
+
 ## Estructura
 
 ```text
@@ -71,6 +87,7 @@ Si la API se ejecuta en otra máquina o puerto, debes ajustar `API_CONFIG.baseUr
 - `GET /api/inventario`
 - `GET /api/usuarios`
 - `POST /api/usuarios`
+- `GET /api/reportes?tipo=...&desde=...&hasta=...&estado=...`
 
 ## Nota importante
 

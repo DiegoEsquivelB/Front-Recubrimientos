@@ -87,7 +87,7 @@
                     type="search"
                     placeholder="Buscar por nombre, teléfono o correo"
                     data-table-search="tabla-clientes" /></label
-                ><button
+                ><small class="conteo-registros" data-search-count="tabla-clientes">0 registros encontrados</small><button
                   type="button"
                   class="boton boton-principal"
                   id="btnAgregarCliente"
@@ -232,6 +232,7 @@
                   name="correo"
                   type="email"
                   placeholder="cliente@correo.com"
+                  required
                 /><small
                   class="error-formulario"
                   id="error-correo"

@@ -36,6 +36,7 @@ if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     setCurrentDate();
     setActiveNavigation();
+    applyRoleAccess();
     setSidebarControls();
     setPasswordToggle();
     setStandardForms();
@@ -126,6 +127,70 @@ function setActiveNavigation() {
   const page = window.location.pathname.split('/').pop() || 'index.html';
   document.querySelectorAll('.enlace-menu').forEach((link) => {
     if (link.getAttribute('href') === page) link.classList.add('activo');
+  });
+}
+
+async function applyRoleAccess() {
+  let currentUser = null;
+  try {
+    const storedUser = sessionStorage.getItem('usuarioActual');
+    currentUser = storedUser ? JSON.parse(storedUser) : null;
+  } catch (_error) {
+    currentUser = null;
+  }
+
+  const applyAccess = (user) => {
+    if (!user) return;
+    const isAdministrator = String(user.rol || '').trim().toLowerCase() === 'administrador';
+    document.querySelectorAll('.enlace-menu, .acciones-rapidas a').forEach((link) => {
+      const href = link.getAttribute('href') || '';
+      if (!isAdministrator && /(?:^|\/)usuarios\.html(?:$|#|\?)/i.test(href) && !link.dataset.accessChecked) {
+        link.dataset.accessChecked = 'true';
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          showAccessDeniedModal();
+        });
+      }
+    });
+  };
+
+  applyAccess(currentUser);
+  if (!currentUser) applyAccess(await getCurrentUser());
+
+  const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+  const isAdministrator = String((currentUser || usuarioActual)?.rol || '').trim().toLowerCase() === 'administrador';
+  if (!isAdministrator && currentPage.toLowerCase() === 'usuarios.html') {
+    showToast('No tiene permisos para acceder al módulo de usuarios.', 'error');
+    window.setTimeout(() => {
+      window.location.href = window.location.pathname.includes('/modulos/') ? '../index.html' : 'index.html';
+    }, 300);
+  }
+}
+
+function showAccessDeniedModal() {
+  const existingModal = document.querySelector('[data-access-denied-modal]');
+  if (existingModal) {
+    existingModal.hidden = false;
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-acceso-denegado';
+  modal.dataset.accessDeniedModal = 'true';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'titulo-acceso-denegado');
+  modal.innerHTML = `<div class="modal-acceso-denegado__contenido"><button type="button" class="modal-acceso-denegado__cerrar" aria-label="Cerrar">×</button><span class="modal-acceso-denegado__icono">!</span><h2 id="titulo-acceso-denegado">No tienes acceso</h2><p>Tu rol no permite ingresar al módulo de usuarios.</p><button type="button" class="boton boton-principal modal-acceso-denegado__aceptar">Entendido</button></div>`;
+  document.body.appendChild(modal);
+
+  const closeModal = () => {
+    modal.hidden = true;
+  };
+  modal.querySelectorAll('.modal-acceso-denegado__cerrar, .modal-acceso-denegado__aceptar').forEach((button) => {
+    button.addEventListener('click', closeModal);
+  });
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) closeModal();
   });
 }
 
@@ -304,8 +369,32 @@ function setTableSearches() {
       table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
         row.hidden = !row.textContent.toLowerCase().includes(query);
       });
+      updateTableSearchCount(input, table);
     });
+    updateTableSearchCount(input, table);
+    const tbody = table.querySelector('tbody');
+    if (tbody) {
+      new MutationObserver(() => updateTableSearchCount(input, table)).observe(tbody, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['hidden']
+      });
+    }
   });
+}
+
+function updateTableSearchCount(input, table) {
+  const countElement = document.querySelector(`[data-search-count="${table.id}"]`);
+  if (!countElement) return;
+  const rows = [...table.querySelectorAll('tbody tr:not(.empty-table)')];
+  const visibleRows = rows.filter((row) => !row.hidden).length;
+  countElement.textContent = `${visibleRows} ${visibleRows === 1 ? 'registro encontrado' : 'registros encontrados'}`;
+}
+
+function refreshTableSearchCount(table) {
+  const input = document.querySelector(`[data-table-search="${table.id}"]`);
+  if (input) updateTableSearchCount(input, table);
 }
 
 async function setupCalculatorModule() {
@@ -355,12 +444,100 @@ function setCalculator() {
   });
 }
 
-function renderReportPreview(form, preview) {
+async function renderReportPreview(form, preview) {
   const data = new FormData(form);
   const type = data.get('tipo');
   const format = data.get('formato');
-  preview.innerHTML = `<div class="encabezado-panel"><div><h2>Vista previa</h2><p>Resultado solicitado: ${type}.</p></div></div><div class="contenido-reporte"><h3>${type}</h3><p>Filtros aplicados: ${data.get('desde') || 'sin fecha inicial'} a ${data.get('hasta') || 'sin fecha final'}.</p><div class="empty-state"><span>▥</span><h3>Sin información para mostrar</h3><p>La vista previa utilizará los datos de la API cuando el backend responda con información real.</p><button class="boton boton-secundario" type="button" data-export-report>Preparar exportación ${format}</button></div></div>`;
-  preview.querySelector('[data-export-report]').addEventListener('click', () => showToast(`La exportación a ${format} se realizará cuando el backend esté disponible.`, 'success'));
+  const query = new URLSearchParams({ tipo: type });
+  ['desde', 'hasta', 'estado'].forEach((key) => {
+    if (data.get(key)) query.set(key, data.get(key));
+  });
+  preview.innerHTML = '<div class="contenido-reporte"><p>Cargando reporte...</p></div>';
+
+  try {
+    const report = await apiRequest(`reportes?${query.toString()}`);
+    const rows = Array.isArray(report.filas) ? report.filas : [];
+    const headers = report.columnas || [];
+    const tableRows = rows.map((row) => `<tr>${Object.values(row).map((value) => `<td>${escapeHtml(formatReportValue(value))}</td>`).join('')}</tr>`).join('');
+    preview.innerHTML = `<div class="encabezado-panel"><div><h2>Vista previa</h2><p>${escapeHtml(report.tipo)} · ${rows.length} registro(s)</p></div><div class="acciones-reporte"><button class="boton boton-secundario" type="button" data-export-report="excel">Excel</button><button class="boton boton-secundario" type="button" data-export-report="pdf">PDF</button></div></div><div class="contenido-reporte"><h3>${escapeHtml(report.tipo)}</h3><div class="tabla-reporte"><table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${tableRows || `<tr><td colspan="${headers.length}">No hay información para los filtros seleccionados.</td></tr>`}</tbody></table></div></div>`;
+    preview.querySelectorAll('[data-export-report]').forEach((button) => button.addEventListener('click', () => {
+      if (button.dataset.exportReport === 'pdf') downloadReportPdf(report);
+      else downloadReportExcel(report);
+    }));
+    if (format === 'PDF') downloadReportPdf(report);
+    if (format === 'Excel') downloadReportExcel(report);
+  } catch (error) {
+    preview.innerHTML = `<div class="contenido-reporte"><div class="empty-state"><span>!</span><h3>No se pudo generar el reporte</h3><p>${escapeHtml(error.message)}</p></div></div>`;
+    showToast(error.message, 'error');
+  }
+}
+
+function formatReportValue(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'number') return Number(value).toLocaleString('es-GT', { maximumFractionDigits: 2 });
+  return normalizeDateValue(value);
+}
+
+async function downloadReportExcel(report) {
+  if (typeof ExcelJS === 'undefined') {
+    showToast('No se pudo cargar ExcelJS. Verifique su conexión a internet.', 'error');
+    return;
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Reporte');
+  const reportRows = (report.filas || []).map((row) => Object.values(row).map(formatReportValue));
+  worksheet.addTable({
+    name: 'TablaReporte',
+    ref: 'A1',
+    headerRow: true,
+    totalsRow: false,
+    columns: report.columnas.map((name) => ({ name })),
+    rows: reportRows
+  });
+  worksheet.columns.forEach((column, index) => {
+    const longestValue = Math.max(
+      report.columnas[index].length,
+      ...reportRows.map((row) => String(row[index] ?? '').length),
+      12
+    );
+    column.width = Math.min(longestValue + 3, 35);
+  });
+  worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  link.download = `${report.tipo.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}.xlsx`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function downloadReportPdf(report) {
+  const jsPdfNamespace = window.jspdf;
+  if (!jsPdfNamespace || typeof jsPdfNamespace.jsPDF !== 'function') {
+    showToast('No se pudo cargar jsPDF. Verifique su conexión a internet.', 'error');
+    return;
+  }
+
+  const documentPdf = new jsPdfNamespace.jsPDF({ orientation: 'landscape' });
+  documentPdf.setFontSize(16);
+  documentPdf.text(report.tipo, 14, 16);
+  documentPdf.setFontSize(9);
+  documentPdf.text(`Generado: ${new Intl.DateTimeFormat('es-GT').format(new Date())}`, 14, 23);
+  documentPdf.autoTable({
+    head: [report.columnas],
+    body: (report.filas || []).map((row) => Object.values(row).map(formatReportValue)),
+    startY: 29,
+    theme: 'grid',
+    headStyles: { fillColor: [31, 90, 117] },
+    styles: { fontSize: 8, cellPadding: 2 },
+    didDrawPage: (data) => {
+      documentPdf.setFontSize(8);
+      documentPdf.text(`Página ${data.pageNumber}`, documentPdf.internal.pageSize.getWidth() - 28, documentPdf.internal.pageSize.getHeight() - 8);
+    }
+  });
+  documentPdf.save(`${report.tipo.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}.pdf`);
 }
 
 function setReportForm() {
@@ -412,6 +589,12 @@ function setDefaultDate() {
 }
 
 function showToast(message, type = '') {
+  if (type === 'error') {
+    const openModal = document.querySelector('.modal.show, .modal-acceso-denegado:not([hidden])');
+    const modalForm = openModal?.querySelector('form');
+    if (modalForm && showFormError(modalForm, message)) return;
+  }
+
   const container = document.querySelector('.contenedor-alertas');
   if (!container) return;
   const alerta = document.createElement('div');
@@ -450,10 +633,30 @@ function clearFormErrors() {
     input.classList.remove('is-invalid');
     input.style.borderColor = '';
   });
+
+  document.querySelectorAll('.error-modal').forEach((error) => error.remove());
+}
+
+function showFormError(form, message) {
+  const modal = form?.closest('.modal');
+  if (!modal || !message) return false;
+
+  let errorElement = modal.querySelector('.error-modal');
+  if (!errorElement) {
+    errorElement = document.createElement('div');
+    errorElement.className = 'error-modal';
+    errorElement.setAttribute('role', 'alert');
+    const modalBody = modal.querySelector('.modal-body');
+    if (modalBody) modalBody.prepend(errorElement);
+    else modal.prepend(errorElement);
+  }
+  errorElement.textContent = message;
+  return true;
 }
 
 function displayValidationErrors(form) {
   const fields = form.querySelectorAll('[required], [type="email"], [type="tel"], [type="number"], [type="date"]');
+  let firstErrorMessage = '';
   
   fields.forEach(field => {
     const fieldName = field.name;
@@ -492,6 +695,7 @@ function displayValidationErrors(form) {
         
         errorElement.textContent = message;
         errorElement.style.display = 'block';
+        if (!firstErrorMessage) firstErrorMessage = message;
       }
     } else {
       field.classList.remove('is-invalid');
@@ -502,6 +706,8 @@ function displayValidationErrors(form) {
       }
     }
   });
+
+  if (firstErrorMessage) showFormError(form, firstErrorMessage);
 }
 
 function applyFieldError(form, fieldName, message) {
@@ -1243,6 +1449,7 @@ async function loadCrudLists() {
 
     if (!items.length) {
       renderEmptyTable(table, config.emptyMessage);
+      refreshTableSearchCount(table);
       if (page === 'inventario.html') {
         renderInventorySummary([]);
         await loadInventoryMovements();
@@ -1352,6 +1559,7 @@ async function loadCrudLists() {
       }).join('');
       bindEditButtons(table);
       bindDeleteButtons(table);
+      refreshTableSearchCount(table);
       return;
     }
 
@@ -1825,7 +2033,6 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       payload.codigo = (form.querySelector('#modalMaterial-codigo')?.value || '').trim();
 
       const isCreating = !materialId;
-      const registrarInventario = payload.registrar_inventario === '1' || payload.registrar_inventario === true;
 
       const currentUser = await getCurrentUser();
       if (currentUser) {
@@ -1833,7 +2040,6 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       }
 
       if (!isCreating) {
-        delete payload.registrar_inventario;
         delete payload.stock_inicial;
         delete payload.referencia_inventario;
       }
@@ -1899,27 +2105,15 @@ async function loadMaterialCategories(selectedValue = '') {
 function setupMaterialInitialInventory(form, canRegisterInventory) {
   const container = form.querySelector('[data-inventory-initial]');
   const fields = form.querySelector('[data-inventory-initial-fields]');
-  const checkbox = form.querySelector('#modalMaterial-registrarInventario');
   const quantity = form.querySelector('#modalMaterial-stockInicial');
   const reference = form.querySelector('#modalMaterial-referenciaInventario');
-  if (!container || !fields || !checkbox || !quantity) return;
+  if (!container || !fields || !quantity) return;
 
   container.hidden = !canRegisterInventory;
-  checkbox.checked = false;
   quantity.value = '';
-  quantity.required = false;
-  fields.hidden = true;
+  quantity.required = canRegisterInventory;
+  fields.hidden = !canRegisterInventory;
   if (reference) reference.value = '';
-
-  checkbox.onchange = () => {
-    const enabled = checkbox.checked;
-    fields.hidden = !enabled;
-    quantity.required = enabled;
-    if (!enabled) {
-      quantity.value = '';
-      if (reference) reference.value = '';
-    }
-  };
 }
 
 async function openMaterialCategoriesModal() {

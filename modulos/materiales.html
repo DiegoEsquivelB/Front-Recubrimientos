@@ -94,6 +94,7 @@
                     data-table-search="tabla-materiales"
                   />
                 </label>
+                <small class="conteo-registros" data-search-count="tabla-materiales">0 registros encontrados</small>
                 <div class="barra-herramientas__actions">
                   <button
                     type="button"
@@ -288,22 +289,9 @@
                 data-inventory-initial
               >
                 <legend>Inventario inicial</legend>
-                <label
-                  class="etiqueta-check alternar-inventario-inicial"
-                  for="modalMaterial-registrarInventario"
-                >
-                  <input
-                    id="modalMaterial-registrarInventario"
-                    name="registrar_inventario"
-                    type="checkbox"
-                    value="1"
-                  />
-                  Registrar entrada inicial al guardar
-                </label>
                 <div
                   class="campos-inventario-inicial"
                   data-inventory-initial-fields
-                  hidden
                 >
                   <div class="grupo-formulario">
                     <label for="modalMaterial-stockInicial"
