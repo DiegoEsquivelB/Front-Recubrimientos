@@ -1,5 +1,5 @@
 const API_CONFIG = {
-  baseUrl: `${window.location.protocol}//${window.location.hostname}:3000/api`,
+  baseUrl: 'https://api-recubrimientos-production.up.railway.app/api',
   legacyTokenKey: 'recubrimientos_token'
 };
 
