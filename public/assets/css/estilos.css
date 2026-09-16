@@ -571,7 +571,8 @@ boton {
   position: sticky;
   top: 0;
   height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 14px 0 40px rgba(8, 56, 71, .12);
 }
 
@@ -726,7 +727,8 @@ boton {
   padding: 18px 12px 12px;
   position: sticky;
   bottom: 0;
-  width: 100%;
+  width: calc(100% - 28px);
+  align-self: center;
   z-index: 1;
 }
 
