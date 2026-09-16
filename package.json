@@ -1,0 +1,10 @@
+{
+  "name": "front-proyecto-g2",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}
