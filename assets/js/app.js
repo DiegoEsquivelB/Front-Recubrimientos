@@ -1,5 +1,5 @@
 const API_CONFIG = {
-  baseUrl: 'https://api-recubrimientos-production.up.railway.app/api',
+  baseUrl: '/api',
   legacyTokenKey: 'recubrimientos_token'
 };
 

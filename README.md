@@ -71,17 +71,15 @@ En el detalle de proyectos aparece el botón `Detalle lote` cuando existe inform
 
 ## Conexión con la API
 
-El frontend usa esta base por defecto en `assets/js/app.js`:
+El frontend usa la ruta relativa `/api` en `assets/js/app.js`:
 
 ```js
 const API_CONFIG = {
-  baseUrl: `${window.location.protocol}//${window.location.hostname}:3000/api`
+  baseUrl: '/api'
 };
 ```
 
-Esto significa que, si el backend corre en `localhost:3000`, la UI se conecta automáticamente sin más configuración.
-
-Si la API se ejecuta en otra máquina o puerto, debes ajustar `API_CONFIG.baseUrl`.
+La aplicación espera que Railway publique el frontend y la API bajo el mismo dominio, o que configure un proxy para enviar `/api/*` al servicio del backend. Así no se expone ni se fija ningún dominio de Railway en el código del navegador. Las variables privadas y la URL interna del backend deben configurarse únicamente en Railway.
 
 ## Rutas que consume el frontend
 
