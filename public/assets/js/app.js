@@ -256,7 +256,7 @@ function setSidebarControls() {
   // Cerrar barra-lateral cuando se hace clic en el overlay
   if (appShell) {
     appShell.addEventListener('click', (e) => {
-      if (event.target === appShell && barraLateral.classList.contains('abierto')) {
+      if (e.target === appShell && barraLateral.classList.contains('abierto')) {
         closeSidebar();
       }
     });
