@@ -1967,7 +1967,7 @@ td {
   text-decoration: underline;
 }
 
-.boton-principal {
+.tarjeta-login .boton-principal {
   background: linear-gradient(90deg, #0f89ff 0%, #0d78ea 100%);
   border: 0;
   border-radius: 14px;
