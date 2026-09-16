@@ -86,6 +86,10 @@
               </div>
 
               <div class="barra-herramientas barra-herramientas-dividida">
+                <div class="pestanas-materiales" role="tablist" aria-label="Vista de materiales">
+                  <button type="button" class="pestana-material activa" id="btnMaterialesActivos" role="tab" aria-selected="true">Activos</button>
+                  <button type="button" class="pestana-material" id="btnMaterialesArchivados" role="tab" aria-selected="false">Archivados</button>
+                </div>
                 <label class="campo-busqueda">
                   <span>⌕</span>
                   <input
@@ -105,6 +109,13 @@
                   </button>
                   <button
                     type="button"
+                    class="boton boton-secundario"
+                    id="btnAgregarManoObra"
+                  >
+                    + Tipo de mano de obra
+                  </button>
+                  <button
+                    type="button"
                     class="boton boton-principal"
                     id="btnAgregarMaterial"
                   >
@@ -117,6 +128,7 @@
                 <table id="tabla-materiales">
                   <thead>
                     <tr>
+                      <th>Imagen</th>
                       <th>Código</th>
                       <th>Material</th>
                       <th>Categoría</th>
@@ -129,7 +141,7 @@
                   </thead>
                   <tbody>
                     <tr class="empty-table">
-                      <td colspan="8">No hay materiales registrados.</td>
+                      <td colspan="9">No hay materiales registrados.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -211,6 +223,7 @@
                   <option>Esmalte</option>
                   <option>Impermeabilizante</option>
                   <option>Accesorio</option>
+                  <option>Mano de obra</option>
                 </select>
                 <small
                   class="error-formulario"
@@ -227,6 +240,7 @@
                   <option>Litro</option>
                   <option>Unidad</option>
                   <option>Metro</option>
+                  <option>m²</option>
                   <option>Kilogramo</option>
                 </select>
                 <small
@@ -282,6 +296,19 @@
                   rows="3"
                   placeholder="Presentación, color u otra característica"
                 ></textarea>
+              </div>
+
+              <div class="grupo-formulario grupo-formulario--full">
+                <label for="modalMaterial-imagen">Imagen del material</label>
+                <input
+                  id="modalMaterial-imagen"
+                  name="imagen_archivo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                />
+                <input type="hidden" name="imagen" />
+                <small class="text-muted">Formatos JPG, PNG o WebP. Máximo 2 MB.</small>
+                <img id="modalMaterial-imagenVista" alt="Vista previa del material" hidden style="display: block; max-width: 180px; max-height: 120px; margin-top: 10px; object-fit: contain; border-radius: 8px;" />
               </div>
 
               <grupo-campos
@@ -342,6 +369,50 @@
             >
               Guardar material
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal fade"
+      id="modalAgregarManoObra"
+      tabindex="-1"
+      aria-labelledby="modalAgregarManoObraLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalAgregarManoObraLabel">Nuevo tipo de mano de obra</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="formAgregarManoObra" class="cuadricula-formulario">
+              <div class="grupo-formulario grupo-formulario--full">
+                <label for="manoObra-nombre">Tipo de trabajo *</label>
+                <input id="manoObra-nombre" name="nombre" type="text" maxlength="100" placeholder="Ej. Pintura, 2 manos" required />
+                <small class="error-formulario" id="error-mano-obra-nombre" style="display: none"></small>
+              </div>
+              <div class="grupo-formulario">
+                <label for="manoObra-costo">Costo empresa por m² (Q) *</label>
+                <input id="manoObra-costo" name="costo" type="number" min="0" step="0.01" placeholder="6.00" required />
+                <small class="error-formulario" id="error-mano-obra-costo" style="display: none"></small>
+              </div>
+              <div class="grupo-formulario">
+                <label for="manoObra-precioCliente">Costo cliente por m² (Q) *</label>
+                <input id="manoObra-precioCliente" name="precio_venta" type="number" min="0" step="0.01" placeholder="10.00" required />
+                <small class="error-formulario" id="error-mano-obra-cliente" style="display: none"></small>
+              </div>
+              <div class="grupo-formulario grupo-formulario--full">
+                <label for="manoObra-descripcion">Descripción</label>
+                <textarea id="manoObra-descripcion" name="descripcion" rows="3" placeholder="Detalle incluido en el trabajo"></textarea>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="boton boton-transparente" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="boton boton-principal" id="btnGuardarManoObra">Guardar tipo de trabajo</button>
           </div>
         </div>
       </div>

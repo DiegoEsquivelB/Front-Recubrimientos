@@ -7,8 +7,8 @@ Frontend web del sistema de gestión de recubrimientos arquitectónicos.
 - Login y cierre de sesión
 - Gestión de clientes
 - Gestión de usuarios
-- Gestión de materiales y categorías
-- Inventario con movimientos
+- Gestión de materiales y categorías con imágenes, materiales activos y archivados
+- Inventario con movimientos, costos por entrada y consumo automático PEPS
 - Registro, edición y listado de proyectos
 - Cálculo de materiales por proyecto
 - Reportes y dashboard
@@ -59,6 +59,16 @@ Front-ProyectoG2/
    - Usuario: `admin@recubrimientos.com`
    - Contraseña: `admin123`
 
+## Materiales e inventario
+
+En el módulo Materiales se puede cargar una imagen JPG, PNG o WebP de hasta 2 MB al crear o editar un material. El formulario muestra una vista previa antes de guardar y conserva la imagen anterior cuando se edita sin seleccionar un nuevo archivo.
+
+El catálogo separa los materiales en las pestañas `Activos` y `Archivados`. Desde Activos se puede archivar un material para retirarlo del catálogo sin perder su historial. Desde Archivados se puede desarchivar o eliminar definitivamente; la eliminación borra movimientos, lotes, inventario y relaciones asociadas.
+
+En Inventario, las entradas permiten indicar un `costo_unitario`. Un mismo material puede recibir varias entradas con costos diferentes. El sistema aplica PEPS automáticamente en las salidas y en el consumo de materiales de proyectos, por lo que siempre descuenta primero los lotes más antiguos disponibles.
+
+En el detalle de proyectos aparece el botón `Detalle lote` cuando existe información PEPS. Ese modal muestra los lotes utilizados, la cantidad tomada y el costo unitario aplicado.
+
 ## Conexión con la API
 
 El frontend usa esta base por defecto en `assets/js/app.js`:
@@ -81,10 +91,14 @@ Si la API se ejecuta en otra máquina o puerto, debes ajustar `API_CONFIG.baseUr
 - `GET /api/clientes`
 - `POST /api/clientes`
 - `GET /api/materiales`
+- `GET /api/materiales?estado=Archivado`
 - `POST /api/materiales`
+- `PATCH /api/materiales/:id/archivar`
+- `PATCH /api/materiales/:id/desarchivar`
 - `GET /api/proyectos`
 - `POST /api/proyectos`
 - `GET /api/inventario`
+- `POST /api/inventario/movimientos`
 - `GET /api/usuarios`
 - `POST /api/usuarios`
 - `GET /api/reportes?tipo=...&desde=...&hasta=...&estado=...`

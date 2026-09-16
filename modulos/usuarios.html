@@ -89,6 +89,10 @@
                     placeholder="Buscar usuario"
                     data-table-search="tabla-usuarios"
                 /></label>
+                <div class="pestanas-archivo" role="tablist" aria-label="Vista de usuarios">
+                  <button type="button" class="pestana-archivo activa" data-archive-view="active" data-archive-resource="usuarios">Activos</button>
+                  <button type="button" class="pestana-archivo" data-archive-view="archived" data-archive-resource="usuarios">Archivados</button>
+                </div>
                 <small class="conteo-registros" data-search-count="tabla-usuarios">0 registros encontrados</small>
                 <div class="barra-herramientas__actions">
                   <button type="button" class="boton boton-principal" id="btnAgregarUsuario">

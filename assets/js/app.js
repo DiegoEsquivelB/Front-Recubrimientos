@@ -13,6 +13,12 @@ const usuariosMapeo = {};
 
 /* Cache del usuario actual para incluir en operaciones que lo requieren */
 let usuarioActual = null;
+let mostrarMaterialesArchivados = false;
+const mostrarArchivados = {
+  clientes: false,
+  proyectos: false,
+  usuarios: false
+};
 
 function getLoginErrorMessage(error) {
   const rawMessage = error && typeof error.message === 'string' ? error.message : '';
@@ -49,6 +55,7 @@ if (typeof document !== 'undefined') {
     loadCrudLists();
     setupClienteModal();
     setupMaterialModal();
+    setupLaborModal();
     setupInventoryModule();
     loadCurrentUserDisplay();
     setupUsuariosModule();
@@ -56,6 +63,7 @@ if (typeof document !== 'undefined') {
     setupProyectoModal();
     setupCalculatorModule();
     setupReportModal();
+    setupArchiveTabs();
   });
 }
 
@@ -238,9 +246,9 @@ function setSidebarControls() {
     });
   });
 
-  // Cerrar barra-lateral cuando se hace clic fuera del menú en móvil
+  // Cerrar barra-lateral cuando se hace clic fuera del menú
   document.addEventListener('click', (event) => {
-    if (window.innerWidth > 820 || !barraLateral.classList.contains('abierto')) return;
+    if (!barraLateral.classList.contains('abierto')) return;
     if (event.target.closest('[data-barra-lateral]') || event.target.closest('[data-barra-lateral-toggle]')) return;
     closeSidebar();
   });
@@ -248,17 +256,24 @@ function setSidebarControls() {
   // Cerrar barra-lateral cuando se hace clic en el overlay
   if (appShell) {
     appShell.addEventListener('click', (e) => {
-      if (e.target === appShell && barraLateral.classList.contains('abierto') && window.innerWidth <= 820) {
+      if (event.target === appShell && barraLateral.classList.contains('abierto')) {
         closeSidebar();
       }
     });
   }
+}
 
-  // Cerrar barra-lateral al redimensionar la ventana a desktop
-  window.addEventListener('resize', () => {
-    if (window.innerWidth > 820) {
-      closeSidebar();
-    }
+function setupArchiveTabs() {
+  document.querySelectorAll('[data-archive-view]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const resource = button.dataset.archiveResource;
+      if (!resource || !(resource in mostrarArchivados)) return;
+      mostrarArchivados[resource] = button.dataset.archiveView === 'archived';
+      document.querySelectorAll(`[data-archive-resource="${resource}"]`).forEach((tab) => {
+        tab.classList.toggle('activa', tab.dataset.archiveView === (mostrarArchivados[resource] ? 'archived' : 'active'));
+      });
+      await loadCrudLists();
+    });
   });
 }
 
@@ -941,7 +956,7 @@ function normalizeProjectPayload(payload = {}) {
 
   const optionalDateKeys = ['fecha_inicio'];
   const optionalTextKeys = ['tipo', 'altura', 'descripcion'];
-  const numericKeys = ['largo', 'altura', 'presupuesto', 'costo_estimado', 'area_m2'];
+  const numericKeys = ['largo', 'altura', 'presupuesto', 'costo_estimado', 'area_m2', 'id_mano_obra'];
   const clientIdKeys = ['cliente_id', 'id_cliente'];
 
   const mapKey = (key, replacementKey) => {
@@ -987,7 +1002,7 @@ function normalizeProjectPayload(payload = {}) {
     }
   }
 
-  const allowedKeys = ['id_cliente', 'id_usuario', 'usuario_id', 'nombre_proyecto', 'estado', 'fecha_inicio', 'area_m2', 'largo', 'altura', 'tipo', 'costo_estimado', 'presupuesto', 'descripcion'];
+  const allowedKeys = ['id_cliente', 'id_usuario', 'usuario_id', 'nombre_proyecto', 'estado', 'fecha_inicio', 'area_m2', 'largo', 'altura', 'tipo', 'id_mano_obra', 'costo_estimado', 'presupuesto', 'costo_mano_obra', 'precio_mano_obra', 'descripcion'];
 
   Object.entries(source).forEach(([key, value]) => {
     if (key === 'id' || key === 'ancho' || key === 'notas') return;
@@ -1219,7 +1234,9 @@ function crearFilaMaterialProyecto(material, cantidad, precio, showActions = tru
 function cargarOpcionesMaterialesProyecto(select) {
   if (!select) return;
 
-  Promise.all([
+  const laborSelect = document.getElementById('proyecto-mano-obra-select');
+
+  return Promise.all([
     apiRequest('materiales'),
     apiRequest('inventario')
   ])
@@ -1240,20 +1257,32 @@ function cargarOpcionesMaterialesProyecto(select) {
         }
       });
 
-      select.innerHTML = '<option value="">Seleccione un material</option>' + materiales.map((material) => {
+      const laborMaterials = materiales.filter((material) => normalizeErrorText(material.categoria || material.tipo) === 'mano de obra');
+      const regularMaterials = materiales.filter((material) => normalizeErrorText(material.categoria || material.tipo) !== 'mano de obra');
+      select.innerHTML = '<option value="">Seleccione un material</option>' + regularMaterials.map((material) => {
         const id = material.id_material ?? material.id ?? '';
         const name = material.nombre || 'Material sin nombre';
         const precio = Number(material.precio_unitario ?? material.precio ?? 0);
         const stockDisponible = stockPorMaterial[String(id)] ?? 0;
         return `<option value="${escapeAttribute(id)}" data-precio="${escapeAttribute(String(precio))}" data-stock="${escapeAttribute(String(Math.trunc(Number(stockDisponible))))}">${escapeHtml(name)} - Q ${Number(precio).toFixed(2)} - Disponible: ${Math.trunc(Number(stockDisponible))}</option>`;
       }).join('');
+
+      if (laborSelect) {
+        laborSelect.innerHTML = '<option value="">Sin mano de obra</option>' + laborMaterials.map((material) => {
+          const id = material.id_material ?? material.id ?? '';
+          const name = material.nombre || 'Trabajo de mano de obra';
+          const companyPrice = Number(material.precio_unitario ?? material.costo ?? 0);
+          const clientPrice = Number(material.precio_venta ?? companyPrice);
+          return `<option value="${escapeAttribute(id)}" data-price-m2="${escapeAttribute(String(companyPrice))}">${escapeHtml(name)} - Empresa Q ${companyPrice.toFixed(2)}/m² · Cliente Q ${clientPrice.toFixed(2)}/m²</option>`;
+        }).join('');
+      }
     })
     .catch((error) => {
       console.warn('No se pudieron cargar los materiales para el proyecto:', error.message);
     });
 }
 
-function bindProjectMaterialButtons(form) {
+async function bindProjectMaterialButtons(form) {
   const select = form.querySelector('#proyecto-material-select');
   const cantidadInput = form.querySelector('#proyecto-material-cantidad');
   const addButton = form.querySelector('#btnAgregarMaterialProyecto');
@@ -1262,7 +1291,7 @@ function bindProjectMaterialButtons(form) {
   if (!select || !cantidadInput || !addButton || !list) return;
 
   ensureProjectMaterialTable(list);
-  cargarOpcionesMaterialesProyecto(select);
+  await cargarOpcionesMaterialesProyecto(select);
 
   addButton.onclick = () => {
     const materialId = Number(select.value || 0);
@@ -1363,48 +1392,65 @@ function renderProjectPipeline(items = []) {
   });
 
   const configColumns = [
-    { key: 'Pendiente', label: 'Pendientes', icon: '⚠', theme: 'pending' },
-    { key: 'En proceso', label: 'En Proceso', icon: '⚙', theme: 'progress' },
-    { key: 'Finalizado', label: 'Finalizados', icon: '✓', theme: 'done' }
+    { key: 'Pendiente', label: 'Pendientes', icon: 'ico pendiente.png', theme: 'pending' },
+    { key: 'En proceso', label: 'En Proceso', icon: 'ico en proceso.png', theme: 'progress' },
+    { key: 'Finalizado', label: 'Finalizados', icon: 'ico finalizado.png', theme: 'done' }
   ];
 
   pipeline.innerHTML = configColumns.map((column) => {
     const itemsColumn = groups[column.key] || [];
+    const subtitle = column.key === 'Pendiente'
+      ? 'Proyectos por iniciar o en espera'
+      : column.key === 'En proceso' ? 'Proyectos en ejecución' : 'Proyectos completados';
     const cards = itemsColumn.length
       ? itemsColumn.map((item) => {
-          const idValue = findRecordId(item);
-          const nombre = item.nombre || item.nombre_proyecto || 'Proyecto sin nombre';
-          const cliente = item.cliente_nombre || item.cliente || item.nombre_cliente || 'Sin cliente';
-          const currentStatus = item.estado || 'Pendiente';
+          const projectId = findRecordId(item);
+          const name = item.nombre || item.nombre_proyecto || 'Proyecto sin nombre';
+          const client = item.cliente_nombre || item.cliente || 'Sin cliente';
+          const code = item.codigo || `#PRY-${String(projectId || '').padStart(3, '0')}`;
+          const date = formatDateValue(item.fecha_inicio || item.fechaInicio || '—');
+          const currentStatus = item.estado || column.key;
           return `
-            <div class="pipeline-item">
-              <div class="pipeline-item__title">${escapeHtml(nombre)}</div>
-              <div class="pipeline-item__meta">${escapeHtml(cliente)}</div>
+            <article class="pipeline-item">
+              <div class="pipeline-item__topline">
+                <span class="pipeline-item__icon">▣</span>
+                <div class="pipeline-item__identity">
+                  <strong>${escapeHtml(name)}</strong>
+                  <small>${escapeHtml(client)}</small>
+                  <span>${escapeHtml(code)} · ${escapeHtml(date)}</span>
+                </div>
+                <button type="button" class="pipeline-item__menu" data-view-proyecto-id="${projectId}" data-record='${escapeAttribute(JSON.stringify(item))}' aria-label="Ver proyecto">⋮</button>
+              </div>
               <label class="pipeline-status-label">
                 <span>Estado</span>
-                <select class="pipeline-status-select" data-project-id="${idValue ?? ''}">
+                <select class="pipeline-status-select" data-project-id="${projectId}" aria-label="Cambiar estado de proyecto">
                   <option value="Pendiente" ${currentStatus === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
                   <option value="En proceso" ${currentStatus === 'En proceso' ? 'selected' : ''}>En proceso</option>
                   <option value="Finalizado" ${currentStatus === 'Finalizado' ? 'selected' : ''}>Finalizado</option>
                 </select>
               </label>
-            </div>
+            </article>
           `;
         }).join('')
-      : '<div class="pipeline-empty">Sin proyectos</div>';
+      : '<div class="pipeline-empty">Sin proyectos en este estado</div>';
 
     return `
-      <div class="pipeline-column pipeline-column--${column.theme}">
+      <article class="pipeline-column pipeline-column--${column.theme}">
         <div class="pipeline-header">
-          <span class="pipeline-header__icon">${column.icon}</span>
-          <span>${column.label}</span>
+          <span class="pipeline-header__icon"><img src="../assets/img/${column.icon}" alt=""></span>
+          <div>
+            <strong>${column.label}</strong>
+            <small>${subtitle}</small>
+          </div>
         </div>
+        <strong class="pipeline-count">${itemsColumn.length}</strong>
         <div class="pipeline-list">${cards}</div>
-      </div>
+      </article>
     `;
   }).join('');
 
   bindProjectPipelineStatusChanges();
+  bindViewProyectoButtons(pipeline);
 }
 
 async function loadCrudLists() {
@@ -1444,7 +1490,18 @@ async function loadCrudLists() {
   if (!table) return;
 
   try {
-    const response = await apiRequest(config.endpoint);
+    const currentUser = await getCurrentUser();
+    const isAdministrator = String(currentUser?.rol || '').trim().toLowerCase() === 'administrador';
+    const archiveResource = ['clientes.html', 'proyectos.html', 'usuarios.html'].includes(page)
+      ? config.endpoint
+      : null;
+    const showArchived = page === 'materiales.html'
+      ? mostrarMaterialesArchivados
+      : Boolean(archiveResource && mostrarArchivados[archiveResource]);
+    const resourceEndpoint = showArchived
+      ? `${config.endpoint}?estado=Archivado`
+      : config.endpoint;
+    const response = await apiRequest(resourceEndpoint);
     const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
 
     if (!items.length) {
@@ -1462,22 +1519,25 @@ async function loadCrudLists() {
         const record = JSON.stringify(item);
         const idValue = item.id_cliente ?? item.idCliente ?? item.id ?? '';
         return `
-          <tr>
+          <tr data-project-status="${escapeAttribute(estado)}">
             <td>${item.nombre || item.razonSocial || 'Sin nombre'}</td>
             <td>${item.telefono || '—'}</td>
             <td>${item.correo || '—'}</td>
-            <td>${item.estado || 'Activo'}</td>
+            <td>${item.estado_archivado === 'Archivado' ? 'Archivado' : 'Activo'}</td>
             <td>
               <button class="boton boton-icono" type="button" data-view-ficha="${idValue}" data-record='${escapeAttribute(record)}' title="Ver ficha completa"><img src="../assets/img/ico lupa.png" alt="Ver ficha"></button>
               <button class="boton boton-icono" type="button" data-edit-id="${idValue}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
-              <button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
+              ${showArchived
+                ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue}" data-unarchive-endpoint="${config.endpoint}" title="Desarchivar">Desarchivar</button>`
+                : `<button class="boton boton-icono boton-peligro" type="button" data-archive-id="${idValue}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}
             </td>
           </tr>
         `;
       }).join('');
       bindViewFichaButtons(table);
       bindEditButtons(table);
-      bindDeleteButtons(table);
+      bindArchiveButtons(table);
+      bindUnarchiveButtons(table);
       return;
     }
 
@@ -1497,7 +1557,8 @@ async function loadCrudLists() {
           : (item.largo ?? item.area_m2 ?? '—');
         const largoDisplay = largo === '—' || largo === null || largo === undefined ? '—' : Number(largo).toFixed(2);
         const tipo = item.tipo || '—';
-        const presupuesto = item.presupuesto ?? item.costo_estimado ?? '—';
+        const costoEmpresa = Number(item.costo_total ?? item.costo_estimado ?? 0);
+        const cotizacionCliente = Number(item.precio_cotizacion ?? item.presupuesto ?? item.costo_estimado ?? 0);
         const estado = item.estado || 'Pendiente';
         return `
           <tr>
@@ -1508,19 +1569,25 @@ async function loadCrudLists() {
             <td>${escapeHtml(String(altura))}</td>
             <td>${escapeHtml(String(Number(area) > 0 ? Number(area).toFixed(2) : '—'))} ${Number(area) > 0 ? 'm²' : ''}</td>
             <td>${escapeHtml(tipo)}</td>
-            <td>${presupuesto === '—' ? '—' : `Q ${Number(presupuesto).toFixed(2)}`}</td>
+            <td>Q ${costoEmpresa.toFixed(2)}</td>
+            <td>Q ${cotizacionCliente.toFixed(2)}</td>
             <td>${escapeHtml(estado)}</td>
             <td>
               <button class="boton boton-icono" type="button" data-view-proyecto-id="${idValue ?? ''}" data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
               <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
-              <button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
+              ${showArchived
+                ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="${config.endpoint}" title="Desarchivar">Desarchivar</button>`
+                : (estado === 'Finalizado'
+                  ? `<button class="boton boton-icono boton-peligro" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`
+                  : '')}
             </td>
           </tr>
         `;
       }).join('');
       bindViewProyectoButtons(table);
       bindEditButtons(table);
-      bindDeleteButtons(table);
+      bindArchiveButtons(table);
+      bindUnarchiveButtons(table);
       return;
     }
 
@@ -1541,8 +1608,13 @@ async function loadCrudLists() {
         const costo = item.costo ? `Q ${Number(item.costo).toFixed(2)}` : '—';
         const stockMinimo = item.stock_minimo ?? item.stockMinimo ?? '—';
         const codigo = item.codigo || '—';
+        const isLabor = normalizeErrorText(categoria) === 'mano de obra';
+        const imagen = item.imagen
+          ? `<img src="${escapeAttribute(item.imagen)}" alt="" style="width: 42px; height: 42px; object-fit: cover; border-radius: 6px;">`
+          : '<span aria-label="Sin imagen">—</span>';
         return `
           <tr>
+            <td>${imagen}</td>
             <td>${codigo}</td>
             <td>${nombre}</td>
             <td>${categoria}</td>
@@ -1551,14 +1623,23 @@ async function loadCrudLists() {
             <td>${costo}</td>
             <td>${stockMinimo}</td>
             <td>
-              <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
-              <button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
+              ${mostrarMaterialesArchivados
+                ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="materiales" title="Desarchivar material">Desarchivar</button>`
+                : `${isLabor
+                  ? `<button class="boton boton-icono" type="button" data-edit-labor-id="${idValue ?? ''}" data-record='${escapeAttribute(record)}' title="Editar tipo de trabajo"><img src="../assets/img/ico editar.png" alt="Editar tipo de trabajo"></button>`
+                  : `<button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>`}
+                   ${isAdministrator
+                     ? `<button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}" title="Eliminar definitivamente"><img src="../assets/img/ico eliminar.png" alt="Eliminar definitivamente"></button>`
+                     : `<button class="boton boton-icono boton-secundario" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}`}
             </td>
           </tr>
         `;
       }).join('');
       bindEditButtons(table);
+      bindLaborEditButtons(table);
       bindDeleteButtons(table);
+      bindArchiveButtons(table);
+      bindUnarchiveButtons(table);
       refreshTableSearchCount(table);
       return;
     }
@@ -1579,13 +1660,16 @@ async function loadCrudLists() {
             <td>${estado}</td>
             <td>
               <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
-              <button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}" title="Eliminar"><img src="../assets/img/ico eliminar.png" alt="Eliminar"></button>
+              ${showArchived
+                ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="${config.endpoint}" title="Desarchivar">Desarchivar</button>`
+                : `<button class="boton boton-icono boton-peligro" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}
             </td>
           </tr>
         `;
       }).join('');
       bindEditButtons(table);
-      bindDeleteButtons(table);
+      bindArchiveButtons(table);
+      bindUnarchiveButtons(table);
       return;
     }
 
@@ -1696,17 +1780,153 @@ function bindDeleteButtons(table) {
       const endpoint = boton.dataset.deleteEndpoint;
       if (!id || !endpoint) return;
 
-      const confirmed = window.confirm('¿Deseas eliminar este registro?');
-      if (!confirmed) return;
+      let deleteAction = 'cancel';
+      if (endpoint === 'materiales') {
+        deleteAction = await showMaterialDeleteModal();
+        if (deleteAction === 'cancel') return;
+      } else if (!await showConfirmationModal({
+        title: 'Eliminar registro',
+        message: '¿Deseas eliminar este registro?',
+        confirmText: 'Eliminar',
+        danger: true
+      })) {
+        return;
+      }
 
       try {
-        const response = await apiRequest(`${endpoint}/${id}`, {
-          method: 'DELETE'
+        const targetEndpoint = deleteAction === 'archive'
+          ? `${endpoint}/${id}/archivar`
+          : `${endpoint}/${id}`;
+        const response = await apiRequest(targetEndpoint, {
+          method: deleteAction === 'archive' ? 'PATCH' : 'DELETE'
         });
         showToast(response?.message || 'Registro eliminado correctamente.', 'success');
         await loadCrudLists();
       } catch (error) {
         showToast(error.message || 'No se pudo eliminar el registro.', 'error');
+      }
+    };
+  });
+}
+
+function bindArchiveButtons(table) {
+  table.querySelectorAll('[data-archive-id]').forEach((button) => {
+    button.onclick = async () => {
+      const id = button.dataset.archiveId;
+      const endpoint = button.dataset.archiveEndpoint;
+      if (!id || !endpoint || !await showConfirmationModal({
+        title: 'Archivar registro',
+        message: '¿Deseas archivar este registro?',
+        confirmText: 'Archivar'
+      })) return;
+      try {
+        const response = await apiRequest(`${endpoint}/${id}/archivar`, { method: 'PATCH' });
+        showToast(response?.message || 'Registro archivado correctamente.', 'success');
+        await loadCrudLists();
+      } catch (error) {
+        showToast(error.message || 'No se pudo archivar el registro.', 'error');
+      }
+    };
+  });
+}
+
+function showConfirmationModal({ title, message, confirmText = 'Confirmar', danger = false }) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade modal-confirmacion';
+    modal.tabIndex = -1;
+    modal.setAttribute('aria-labelledby', 'titulo-confirmacion');
+    modal.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="titulo-confirmacion">${escapeHtml(title)}</h5>
+            <button type="button" class="btn-close" data-confirm-action="cancel" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <p>${escapeHtml(message)}</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="boton boton-transparente" data-confirm-action="cancel">Cancelar</button>
+            <button type="button" class="boton ${danger ? 'boton-peligro' : 'boton-secundario'}" data-confirm-action="confirm">${escapeHtml(confirmText)}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const instance = new bootstrap.Modal(modal);
+    let settled = false;
+    const finish = (confirmed) => {
+      if (settled) return;
+      settled = true;
+      resolve(confirmed);
+      instance.hide();
+    };
+
+    modal.querySelectorAll('[data-confirm-action]').forEach((button) => {
+      button.addEventListener('click', () => finish(button.dataset.confirmAction === 'confirm'));
+    });
+    modal.addEventListener('hidden.bs.modal', () => {
+      if (!settled) resolve(false);
+      modal.remove();
+    }, { once: true });
+    instance.show();
+  });
+}
+
+function showMaterialDeleteModal() {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade modal-eliminar-material';
+    modal.tabIndex = -1;
+    modal.innerHTML = `
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Eliminar material</h5>
+            <button type="button" class="btn-close" data-action="cancel" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-eliminar-material__warning">Este material tiene movimientos asociados.</p>
+            <p class="modal-eliminar-material__copy">Si archiva el registro, se conserva el historial de movimientos.</p>
+          </div>
+          <div class="modal-footer modal-eliminar-material__actions">
+            <button type="button" class="boton boton-transparente" data-action="cancel">Cancelar</button>
+            <button type="button" class="boton boton-secundario" data-action="archive">Archivar</button>
+            <button type="button" class="boton boton-peligro" data-action="delete">Eliminar todo</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const instance = new bootstrap.Modal(modal);
+    let settled = false;
+    const finish = (action) => {
+      if (settled) return;
+      settled = true;
+      resolve(action);
+      instance.hide();
+    };
+    modal.querySelectorAll('[data-action]').forEach((button) => {
+      button.addEventListener('click', () => finish(button.dataset.action));
+    });
+    modal.addEventListener('hidden.bs.modal', () => modal.remove(), { once: true });
+    instance.show();
+  });
+}
+
+function bindUnarchiveButtons(table) {
+  table.querySelectorAll('[data-unarchive-id]').forEach((button) => {
+    button.onclick = async () => {
+      const id = button.dataset.unarchiveId;
+      if (!id) return;
+      try {
+        const endpoint = button.dataset.unarchiveEndpoint || 'materiales';
+        const response = await apiRequest(`${endpoint}/${id}/desarchivar`, { method: 'PATCH' });
+        showToast(response?.message || 'Registro desarchivado correctamente.', 'success');
+        await loadCrudLists();
+      } catch (error) {
+        showToast(error.message || 'No se pudo desarchivar el material.', 'error');
       }
     };
   });
@@ -1743,7 +1963,16 @@ async function showProyectoDetalle(proyecto) {
   const fechaInicio = formatDateValue(proyecto.fecha_inicio || proyecto.fechaInicio || '—');
   const area = proyecto.area_m2 ?? proyecto.largo ?? proyecto.area ?? '—';
   const tipo = proyecto.tipo || '—';
-  const presupuesto = proyecto.presupuesto ?? proyecto.costo_estimado ?? '—';
+  const manoObraNombre = proyecto.mano_obra_nombre || (proyecto.id_mano_obra ? 'Trabajo de mano de obra seleccionado' : 'Sin mano de obra seleccionada');
+  const laborPriceM2 = Number(proyecto.mano_obra_precio_m2 ?? 0);
+  const laborArea = Number(proyecto.area_m2 ?? 0);
+  const calculatedLaborCost = Number((laborArea * laborPriceM2).toFixed(2));
+  const storedLaborCost = Number(proyecto.costo_mano_obra ?? 0);
+  const storedLaborPrice = Number(proyecto.precio_mano_obra ?? 0);
+  const costoManoObra = storedLaborCost > 0 ? storedLaborCost : calculatedLaborCost;
+  const precioManoObra = storedLaborPrice > 0 ? storedLaborPrice : calculatedLaborCost;
+  const costoTotal = Number(proyecto.costo_total ?? 0);
+  const precioCotizacionRegistrada = Number(proyecto.precio_cotizacion ?? proyecto.presupuesto ?? proyecto.costo_estimado ?? 0);
   const descripcion = proyecto.descripcion || 'Sin observaciones';
   const projectId = proyecto.id_proyecto ?? proyecto.id ?? proyecto.idProyecto ?? '';
 
@@ -1758,6 +1987,9 @@ async function showProyectoDetalle(proyecto) {
   }
 
   const totalMateriales = materiales.reduce((sum, item) => sum + Number(item.costo_subtotal ?? 0), 0);
+  const costoTotalCalculado = costoTotal || totalMateriales + costoManoObra;
+  const precioCotizacion = totalMateriales + precioManoObra || precioCotizacionRegistrada;
+  const utilidad = precioCotizacion - costoTotalCalculado;
 
   const materialesHtml = materiales.length
     ? `
@@ -1770,18 +2002,29 @@ async function showProyectoDetalle(proyecto) {
               <span>Cantidad</span>
               <span>Precio</span>
               <span>Subtotal</span>
+              <span>Detalle</span>
             </div>
             ${materiales.map((item) => {
               const nombreMaterial = item.material_nombre || item.nombre || 'Material';
               const cantidad = Math.trunc(Number(item.cantidad_calculada ?? item.cantidad ?? 0));
               const precioUnitario = Number(item.precio_unitario ?? 0);
               const subtotal = Number(item.costo_subtotal ?? 0).toFixed(2);
+              let detallePeps = [];
+              try {
+                detallePeps = typeof item.detalle_peps === 'string' ? JSON.parse(item.detalle_peps) : (item.detalle_peps || []);
+              } catch (_error) {
+                detallePeps = [];
+              }
+              const detalleTexto = detallePeps.length
+                ? detallePeps.map((lote) => `Lote #${lote.id_lote}: ${lote.cantidad} x Q ${Number(lote.costo_unitario).toFixed(2)}`).join('\n')
+                : 'No hay desglose de lote disponible para este consumo.';
               return `
                 <div class="tabla-materiales-detalle__row">
                   <span>${escapeHtml(nombreMaterial)}</span>
                   <span>${cantidad}</span>
                   <span>Q ${precioUnitario.toFixed(2)}</span>
                   <span>Q ${subtotal}</span>
+                  <button class="boton boton-transparente boton-peps" type="button" data-peps-detail="${escapeAttribute(detalleTexto)}" title="Ver detalle del lote">Detalle lote</button>
                 </div>
               `;
             }).join('')}
@@ -1789,14 +2032,62 @@ async function showProyectoDetalle(proyecto) {
         </div>
       </div>
       <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Total estimado:</label>
+        <label class="etiqueta-ficha-cliente">Materiales:</label>
         <div class="valor-ficha-cliente">Q ${totalMateriales.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Tipo de mano de obra:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(manoObraNombre)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Costo mano de obra interna:</label>
+        <div class="valor-ficha-cliente">Q ${costoManoObra.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Mano de obra cobrada:</label>
+        <div class="valor-ficha-cliente">Q ${precioManoObra.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Costo interno total:</label>
+        <div class="valor-ficha-cliente">Q ${costoTotalCalculado.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Cotización al cliente:</label>
+        <div class="valor-ficha-cliente">Q ${precioCotizacion.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Utilidad estimada:</label>
+        <div class="valor-ficha-cliente">Q ${utilidad.toFixed(2)}</div>
       </div>
     `
     : `
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Materiales:</label>
         <div class="valor-ficha-cliente">Sin materiales asignados</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Tipo de mano de obra:</label>
+        <div class="valor-ficha-cliente">${escapeHtml(manoObraNombre)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Costo mano de obra interna:</label>
+        <div class="valor-ficha-cliente">Q ${costoManoObra.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Mano de obra cobrada:</label>
+        <div class="valor-ficha-cliente">Q ${precioManoObra.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Costo interno total:</label>
+        <div class="valor-ficha-cliente">Q ${costoTotalCalculado.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Cotización al cliente:</label>
+        <div class="valor-ficha-cliente">Q ${precioCotizacion.toFixed(2)}</div>
+      </div>
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Utilidad estimada:</label>
+        <div class="valor-ficha-cliente">Q ${utilidad.toFixed(2)}</div>
       </div>
     `;
 
@@ -1826,10 +2117,6 @@ async function showProyectoDetalle(proyecto) {
         <label class="etiqueta-ficha-cliente">Tipo:</label>
         <div class="valor-ficha-cliente">${escapeHtml(tipo)}</div>
       </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Presupuesto:</label>
-        <div class="valor-ficha-cliente">${presupuesto === '—' ? '—' : `Q ${Number(presupuesto).toFixed(2)}`}</div>
-      </div>
       ${materialesHtml}
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Descripción:</label>
@@ -1838,8 +2125,45 @@ async function showProyectoDetalle(proyecto) {
     </div>
   `;
 
+  content.querySelectorAll('[data-peps-detail]').forEach((button) => {
+    button.onclick = () => showPepsDetailModal(button.dataset.pepsDetail || 'Sin detalle');
+  });
+
   const bootstrapModal = new bootstrap.Modal(modal);
   bootstrapModal.show();
+}
+
+function showPepsDetailModal(detail) {
+  const previousModal = document.querySelector('[data-peps-modal]');
+  if (previousModal) previousModal.remove();
+
+  const modal = document.createElement('div');
+  modal.className = 'modal fade modal-peps-detalle';
+  modal.dataset.pepsModal = 'true';
+  modal.tabIndex = -1;
+  modal.setAttribute('aria-labelledby', 'modalPepsDetalleLabel');
+  modal.setAttribute('aria-hidden', 'true');
+  modal.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalPepsDetalleLabel">Detalle del lote</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-peps-detalle__intro">Información de los lotes utilizados:</p>
+          <pre class="modal-peps-detalle__contenido"></pre>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="boton boton-principal" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  modal.querySelector('.modal-peps-detalle__contenido').textContent = detail;
+  modal.addEventListener('hidden.bs.modal', () => modal.remove(), { once: true });
+  document.body.appendChild(modal);
+  new bootstrap.Modal(modal).show();
 }
 
 function showClienteFicha(cliente) {
@@ -1888,6 +2212,20 @@ function showClienteFicha(cliente) {
 function setupMaterialModal() {
   const btnAgregar = document.getElementById('btnAgregarMaterial');
   const btnCategorias = document.getElementById('btnEditarCategorias');
+  const btnActivos = document.getElementById('btnMaterialesActivos');
+  const btnArchivados = document.getElementById('btnMaterialesArchivados');
+
+  const setMaterialView = async (archived) => {
+    mostrarMaterialesArchivados = archived;
+    btnActivos?.classList.toggle('activa', !archived);
+    btnArchivados?.classList.toggle('activa', archived);
+    btnActivos?.setAttribute('aria-selected', String(!archived));
+    btnArchivados?.setAttribute('aria-selected', String(archived));
+    await loadCrudLists();
+  };
+
+  btnActivos?.addEventListener('click', () => setMaterialView(false));
+  btnArchivados?.addEventListener('click', () => setMaterialView(true));
 
   if (btnAgregar) btnAgregar.addEventListener('click', () => {
     openMaterialModal();
@@ -1898,6 +2236,86 @@ function setupMaterialModal() {
   });
 
   loadMaterialCategories();
+}
+
+function setupLaborModal() {
+  const button = document.getElementById('btnAgregarManoObra');
+  const modal = document.getElementById('modalAgregarManoObra');
+  const form = document.getElementById('formAgregarManoObra');
+  const saveButton = document.getElementById('btnGuardarManoObra');
+  if (!button || !modal || !form || !saveButton || typeof bootstrap === 'undefined') return;
+
+  button.addEventListener('click', () => {
+    openLaborModal();
+  });
+
+  saveButton.onclick = async () => {
+    try {
+      clearFormErrors();
+      if (!form.checkValidity()) {
+        displayValidationErrors(form);
+        return;
+      }
+
+      const currentUser = await getCurrentUser();
+      const laborId = form.dataset.editId || '';
+      const response = await apiRequest(laborId ? `materiales/${laborId}` : 'materiales', {
+        method: laborId ? 'PUT' : 'POST',
+        body: {
+          nombre: form.querySelector('[name="nombre"]').value.trim(),
+          categoria: 'Mano de obra',
+          unidad: 'm²',
+          rendimiento: 0,
+          costo: Number(form.querySelector('[name="costo"]').value),
+          precio_venta: Number(form.querySelector('[name="precio_venta"]').value),
+          stock_minimo: 0,
+          descripcion: form.querySelector('[name="descripcion"]').value.trim(),
+          id_usuario: currentUser?.id_usuario ?? currentUser?.id ?? ''
+        }
+      });
+
+      showToast(response?.message || (laborId ? 'Tipo de mano de obra actualizado correctamente.' : 'Tipo de mano de obra guardado correctamente.'), 'success');
+      bootstrap.Modal.getInstance(modal)?.hide();
+      await loadCrudLists();
+    } catch (error) {
+      handleFormError(error, form);
+    }
+  };
+}
+
+function openLaborModal(material = null, id = '') {
+  const modal = document.getElementById('modalAgregarManoObra');
+  const form = document.getElementById('formAgregarManoObra');
+  const title = document.getElementById('modalAgregarManoObraLabel');
+  if (!modal || !form || typeof bootstrap === 'undefined') return;
+
+  form.reset();
+  form.dataset.editId = id || '';
+  clearFormErrors();
+  if (title) title.textContent = material ? 'Editar tipo de mano de obra' : 'Nuevo tipo de mano de obra';
+  if (material) {
+    form.querySelector('[name="nombre"]').value = material.nombre || '';
+    form.querySelector('[name="costo"]').value = material.costo ?? material.precio_unitario ?? '';
+    form.querySelector('[name="precio_venta"]').value = material.precio_venta ?? material.costo ?? material.precio_unitario ?? '';
+    form.querySelector('[name="descripcion"]').value = material.descripcion || '';
+  }
+  new bootstrap.Modal(modal).show();
+}
+
+function bindLaborEditButtons(table) {
+  table.querySelectorAll('[data-edit-labor-id]').forEach((button) => {
+    button.onclick = async () => {
+      const id = button.dataset.editLaborId;
+      const fallback = parseRecordData(button.dataset.record);
+      let material = fallback;
+      try {
+        if (id) material = await apiRequest(`materiales/${id}`);
+      } catch (_error) {
+        material = fallback;
+      }
+      if (material) openLaborModal(material, id);
+    };
+  });
 }
 
 function openMaterialEditModal(material, id, endpoint) {
@@ -1945,11 +2363,49 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   const titleModal = document.getElementById('modalEditarMaterialLabel');
   if (titleModal) titleModal.textContent = material ? 'Editar material' : 'Agregar nuevo material';
 
+  const imageInput = form.querySelector('#modalMaterial-imagen');
+  const imageValue = form.querySelector('input[name="imagen"]');
+  const imagePreview = form.querySelector('#modalMaterial-imagenVista');
+  const setImagePreview = (source) => {
+    if (!imagePreview) return;
+    imagePreview.src = source || '';
+    imagePreview.hidden = !source;
+  };
+  if (imageInput) imageInput.value = '';
+  if (imageValue) imageValue.value = '';
+  setImagePreview('');
+  if (imageInput) {
+    imageInput.onchange = () => {
+      const file = imageInput.files?.[0];
+      if (!file) return;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+        imageInput.value = '';
+        showToast('Seleccione una imagen JPG, PNG o WebP de máximo 2 MB.', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const imageData = String(reader.result || '');
+        if (imageValue) imageValue.value = imageData;
+        setImagePreview(imageData);
+      };
+      reader.readAsDataURL(file);
+    };
+  }
+
   setupMaterialInitialInventory(form, !material);
   await loadMaterialCategories(material ? material.categoria : '');
 
   const categorySelect = form.querySelector('#modalMaterial-categoria');
   const codeInput = form.querySelector('#modalMaterial-codigo');
+  const updateLaborFields = () => {
+    const isLabor = normalizeErrorText(categorySelect?.value) === 'mano de obra';
+    const laborPriceLabel = form.querySelector('label[for="modalMaterial-costo"]');
+    if (laborPriceLabel) laborPriceLabel.textContent = isLabor ? 'Precio por m² (Q)' : 'Costo unitario (Q)';
+    setupMaterialInitialInventory(form, !material && !isLabor);
+  };
+  categorySelect?.addEventListener('change', updateLaborFields);
+  updateLaborFields();
   if (codeInput) {
     codeInput.readOnly = true;
     codeInput.dataset.generated = '1';
@@ -1995,6 +2451,8 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     form.querySelector('#modalMaterial-costo').value = material.costo ?? '';
     form.querySelector('#modalMaterial-minimo').value = material.stock_minimo ?? material.stockMinimo ?? '';
     form.querySelector('#modalMaterial-descripcion').value = material.descripcion || '';
+    if (imageValue) imageValue.value = material.imagen || '';
+    setImagePreview(material.imagen || '');
   } else if (categorySelect) {
     categorySelect.onchange = updateGeneratedCode;
     if (categorySelect.value) {
@@ -2018,7 +2476,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       const payload = {};
       const formData = new FormData(form);
       for (const [key, value] of formData.entries()) {
-        if (key !== 'id' && key !== 'codigo') payload[key] = value;
+        if (key !== 'id' && key !== 'codigo' && key !== 'imagen_archivo') payload[key] = value;
       }
 
       const categorySelect = form.querySelector('#modalMaterial-categoria');
@@ -2076,7 +2534,8 @@ async function loadMaterialCategories(selectedValue = '') {
 
   try {
     const categories = await apiRequest('materiales/categorias');
-    const options = categories.map((category) => `<option value="${escapeAttribute(String(category.id ?? category.id_categoria ?? ''))}" data-prefijo="${escapeAttribute(String(category.prefijo_codigo || ''))}" data-nombre="${escapeAttribute(category.nombre || '')}">${category.nombre}</option>`).join('');
+    const materialCategories = categories.filter((category) => normalizeErrorText(category.nombre) !== 'mano de obra');
+    const options = materialCategories.map((category) => `<option value="${escapeAttribute(String(category.id ?? category.id_categoria ?? ''))}" data-prefijo="${escapeAttribute(String(category.prefijo_codigo || ''))}" data-nombre="${escapeAttribute(category.nombre || '')}">${category.nombre}</option>`).join('');
 
     if (select) {
       const currentValue = selectedValue || select.value;
@@ -2126,6 +2585,10 @@ async function openMaterialCategoriesModal() {
   const btnEliminar = document.getElementById('btnEliminarCategoria');
   if (!modal || !form || !select || !input || !prefixInput || !btnGuardar || !btnEliminar) return;
 
+  const currentUser = await getCurrentUser();
+  const isAdministrator = String(currentUser?.rol || '').trim().toLowerCase() === 'administrador';
+  btnEliminar.hidden = !isAdministrator;
+
   clearFormErrors();
   form.reset();
   await loadMaterialCategories();
@@ -2171,7 +2634,12 @@ async function openMaterialCategoriesModal() {
   btnEliminar.onclick = async () => {
     const id = select.value;
     if (!id) return;
-    const confirmed = window.confirm('¿Deseas eliminar esta categoría?');
+    const confirmed = await showConfirmationModal({
+      title: 'Eliminar categoría',
+      message: '¿Deseas eliminar esta categoría?',
+      confirmText: 'Eliminar',
+      danger: true
+    });
     if (!confirmed) return;
 
     try {
@@ -2417,7 +2885,7 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
     estadoSelect.disabled = true;
   }
 
-  bindProjectMaterialButtons(form);
+  await bindProjectMaterialButtons(form);
 
   const projectMaterialsList = form.querySelector('#listaMaterialesProyecto');
   if (projectMaterialsList) {
@@ -2462,6 +2930,7 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
     form.querySelector('input[name="largo"]').value = proyecto.largo ?? proyecto.area_largo ?? '';
     form.querySelector('input[name="altura"]').value = proyecto.altura ?? '';
     form.querySelector('select[name="tipo"]').value = proyecto.tipo || '';
+    form.querySelector('select[name="id_mano_obra"]').value = proyecto.id_mano_obra ?? '';
     const presupuestoInput = form.querySelector('input[name="presupuesto"]');
     if (presupuestoInput) {
       presupuestoInput.value = proyecto.presupuesto ?? proyecto.costo_estimado ?? '';
@@ -2764,6 +3233,16 @@ async function saveInventoryMovement() {
   const form = document.getElementById('formMovimientoInventario');
   if (!form) return;
 
+  const typeSelect = form.querySelector('#movimiento-tipo');
+  const costInput = form.querySelector('#movimiento-costo');
+  if (typeSelect && costInput) {
+    const updateCostRequirement = () => {
+      costInput.required = typeSelect.value === 'Entrada';
+    };
+    typeSelect.addEventListener('change', updateCostRequirement);
+    updateCostRequirement();
+  }
+
   try {
     clearFormErrors();
 
@@ -2805,7 +3284,8 @@ async function loadInventoryMaterials() {
 
   try {
     const response = await apiRequest('materiales');
-    const materials = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+    const materials = (Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []))
+      .filter((material) => normalizeErrorText(material.categoria || material.tipo) !== 'mano de obra');
     select.innerHTML = '<option value="">Seleccione un material</option>' + materials.map((material) => {
       const id = material.id_material ?? material.id ?? '';
       const code = material.codigo ? `${material.codigo} - ` : '';

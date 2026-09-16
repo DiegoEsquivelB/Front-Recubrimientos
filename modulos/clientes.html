@@ -87,7 +87,10 @@
                     type="search"
                     placeholder="Buscar por nombre, teléfono o correo"
                     data-table-search="tabla-clientes" /></label
-                ><small class="conteo-registros" data-search-count="tabla-clientes">0 registros encontrados</small><button
+                ><div class="pestanas-archivo" role="tablist" aria-label="Vista de clientes">
+                  <button type="button" class="pestana-archivo activa" data-archive-view="active" data-archive-resource="clientes">Activos</button>
+                  <button type="button" class="pestana-archivo" data-archive-view="archived" data-archive-resource="clientes">Archivados</button>
+                </div><small class="conteo-registros" data-search-count="tabla-clientes">0 registros encontrados</small><button
                   type="button"
                   class="boton boton-principal"
                   id="btnAgregarCliente"

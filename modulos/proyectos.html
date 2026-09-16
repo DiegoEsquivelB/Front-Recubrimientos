@@ -10,7 +10,7 @@
     />
     <link rel="stylesheet" href="../assets/css/estilos.css" />
   </head>
-  <body>
+  <body class="pagina-proyectos">
     <div class="app-shell">
       <aside class="barra-lateral" data-barra-lateral>
         <a class="marca" href="../index.html" aria-label="Recubrimientos Diego S.A">
@@ -60,11 +60,11 @@
           </div>
 
           <div class="cuadricula-contenido">
-            <article class="panel pipeline-panel">
+            <article class="panel pipeline-panel proyectos-resumen-panel">
               <div class="pipeline-proyectos" id="pipelineProyectos"></div>
             </article>
 
-            <article class="panel">
+            <article class="panel proyectos-tabla-panel">
               <div class="encabezado-panel">
                 <div>
                   <h2>Proyectos registrados</h2>
@@ -77,6 +77,11 @@
                   <span>⌕</span>
                   <input type="search" placeholder="Buscar proyecto" data-table-search="tabla-proyectos">
                 </label>
+
+                <div class="pestanas-archivo" role="tablist" aria-label="Vista de proyectos">
+                  <button type="button" class="pestana-archivo activa" data-archive-view="active" data-archive-resource="proyectos">Activos</button>
+                  <button type="button" class="pestana-archivo" data-archive-view="archived" data-archive-resource="proyectos">Archivados</button>
+                </div>
 
                 <small class="conteo-registros" data-search-count="tabla-proyectos">0 registros encontrados</small>
 
@@ -104,14 +109,15 @@
                       <th>Altura</th>
                       <th>Área</th>
                       <th>Tipo</th>
-                      <th>Presupuesto</th>
+                      <th>Costo empresa</th>
+                      <th>Cotización cliente</th>
                       <th>Estado</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr class="empty-table">
-                      <td colspan="10">No hay proyectos registrados.</td>
+                      <td colspan="11">No hay proyectos registrados.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -199,6 +205,14 @@
                   <option>Impermeabilización</option>
                   <option>Sellado</option>
                 </select>
+              </div>
+
+              <div class="grupo-formulario grupo-formulario--full">
+                <label for="proyecto-mano-obra-select">Tipo de trabajo de mano de obra</label>
+                <select id="proyecto-mano-obra-select" name="id_mano_obra">
+                  <option value="">Sin mano de obra</option>
+                </select>
+                <small class="texto-suave">El costo se calcula automáticamente: área × precio por m².</small>
               </div>
 
               <div class="grupo-formulario grupo-formulario--full">
