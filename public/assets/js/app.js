@@ -1519,7 +1519,7 @@ async function loadCrudLists() {
         const record = JSON.stringify(item);
         const idValue = item.id_cliente ?? item.idCliente ?? item.id ?? '';
         return `
-          <tr data-project-status="${escapeAttribute(estado)}">
+          <tr>
             <td>${item.nombre || item.razonSocial || 'Sin nombre'}</td>
             <td>${item.telefono || '—'}</td>
             <td>${item.correo || '—'}</td>
