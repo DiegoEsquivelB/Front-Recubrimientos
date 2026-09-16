@@ -33,31 +33,50 @@ Las librerías se cargan desde `jsdelivr.net` en [reportes.html](modulos/reporte
 
 ```text
 Front-ProyectoG2/
-├── index.html
-├── login.html
-├── modulos/
-│   ├── clientes.html
-│   ├── proyectos.html
-│   ├── materiales.html
-│   ├── inventario.html
-│   ├── calculo-materiales.html
-│   ├── reportes.html
-│   └── usuarios.html
-├── assets/
-│   ├── css/
-│   ├── img/
-│   └── js/
-│       └── app.js
-└── README.md
+├── public/
+│   ├── index.html
+│   ├── login.html
+│   ├── modulos/
+│   │   ├── clientes.html
+│   │   ├── proyectos.html
+│   │   ├── materiales.html
+│   │   ├── inventario.html
+│   │   ├── calculo-materiales.html
+│   │   ├── reportes.html
+│   │   └── usuarios.html
+│   └── assets/
+│       ├── css/
+│       ├── img/
+│       └── js/
+│           └── app.js
+├── server.js
+├── package.json
+├── package-lock.json
+├── README.md
+└── .gitignore
 ```
 
 ## Cómo usarlo
 
-1. Inicia la API en `API-ProyectoG2`.
-2. Abre `login.html` en el navegador.
-3. Ingresa con:
-   - Usuario: `admin@recubrimientos.com`
-   - Contraseña: `admin123`
+1. Instala dependencias: `npm install`
+2. Configura la URL del backend:
+   - PowerShell:
+     ```powershell
+     $env:API_BASE_URL="https://api-recubrimientos-production.up.railway.app"
+     ```
+   - Linux/macOS:
+     ```bash
+     export API_BASE_URL="https://api-recubrimientos-production.up.railway.app"
+     ```
+3. Levanta el frontend:
+   ```bash
+   npm start
+   ```
+4. Abre la aplicación en el navegador en:
+   ```text
+   http://localhost:3000/login.html
+   ```
+5. Ingresa con las credenciales configuradas en la API.
 
 ## Materiales e inventario
 
@@ -71,15 +90,25 @@ En el detalle de proyectos aparece el botón `Detalle lote` cuando existe inform
 
 ## Conexión con la API
 
-El frontend usa la ruta relativa `/api` en `assets/js/app.js`:
+La aplicación no tiene la URL del backend hardcodeada en el navegador. El frontend usa la ruta relativa `/api` y el servidor Node hace el proxy hacia la URL definida en la variable de entorno `API_BASE_URL`.
+
+Configuración real del servidor:
 
 ```js
-const API_CONFIG = {
-  baseUrl: '/api'
-};
+const API_BASE_URL = String(process.env.API_BASE_URL || '').replace(/\/$/, '');
+
+if (req.url === '/api' || req.url.startsWith('/api/')) {
+  proxy.web(req, res, { target: API_BASE_URL });
+}
 ```
 
-La aplicación espera que Railway publique el frontend y la API bajo el mismo dominio, o que configure un proxy para enviar `/api/*` al servicio del backend. Así no se expone ni se fija ningún dominio de Railway en el código del navegador. Las variables privadas y la URL interna del backend deben configurarse únicamente en Railway.
+Esto significa que el valor del backend se configura por entorno, no en el código del frontend. Ejemplo:
+
+```powershell
+$env:API_BASE_URL="https://api-recubrimientos-production.up.railway.app"
+```
+
+La app queda disponible en `http://localhost:3000` y redirige automáticamente las peticiones `/api/*` hacia la API configurada en `API_BASE_URL`.
 
 ## Rutas que consume el frontend
 

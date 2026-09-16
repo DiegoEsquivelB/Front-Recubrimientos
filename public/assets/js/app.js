@@ -1,6 +1,7 @@
 const API_CONFIG = {
   baseUrl: '/api',
-  legacyTokenKey: 'recubrimientos_token'
+  legacyTokenKey: 'recubrimientos_token',
+  rememberedUserKey: 'recubrimientos_usuario_recordado'
 };
 
 const browserWindow = typeof window !== 'undefined' ? window : globalThis;
@@ -45,6 +46,7 @@ if (typeof document !== 'undefined') {
     applyRoleAccess();
     setSidebarControls();
     setPasswordToggle();
+    applyRememberedLoginState();
     setStandardForms();
     setTableSearches();
     setCalculator();
@@ -289,6 +291,47 @@ function setPasswordToggle() {
   });
 }
 
+function getRememberedUser() {
+  try {
+    const saved = localStorage.getItem(API_CONFIG.rememberedUserKey);
+    if (!saved) return '';
+    const parsed = JSON.parse(saved);
+    if (typeof parsed === 'string') return parsed.trim();
+    if (parsed && typeof parsed.usuario === 'string') return parsed.usuario.trim();
+    return '';
+  } catch (_error) {
+    return '';
+  }
+}
+
+function saveRememberedUser(username, shouldRemember) {
+  const normalized = String(username || '').trim();
+
+  if (shouldRemember && normalized) {
+    localStorage.setItem(API_CONFIG.rememberedUserKey, JSON.stringify({ usuario: normalized }));
+    return;
+  }
+
+  localStorage.removeItem(API_CONFIG.rememberedUserKey);
+}
+
+function applyRememberedLoginState() {
+  const loginForm = document.querySelector('form[data-form]');
+  if (!loginForm) return;
+
+  const usernameInput = loginForm.querySelector('[name="usuario"]');
+  const rememberInput = loginForm.querySelector('[name="recordar"]');
+  const rememberedUser = getRememberedUser();
+
+  if (rememberInput) {
+    rememberInput.checked = Boolean(rememberedUser);
+  }
+
+  if (usernameInput && rememberedUser) {
+    usernameInput.value = rememberedUser;
+  }
+}
+
 function setStandardForms() {
   document.querySelectorAll('form[data-form]').forEach((form) => {
     const submitButton = form.querySelector('button[type="submit"]');
@@ -331,6 +374,11 @@ function setStandardForms() {
 
           if (endpoint === 'auth/login' && response?.user) {
             clearLegacyAuthStorage();
+            const usernameInput = form.querySelector('[name="usuario"]');
+            const rememberInput = form.querySelector('[name="recordar"]');
+            const shouldRemember = Boolean(rememberInput && rememberInput.checked);
+            saveRememberedUser(usernameInput ? usernameInput.value : '', shouldRemember);
+
             /* Guardar datos del usuario autenticado en sessionStorage */
             if (response.user && (response.user.id_usuario || response.user.id)) {
               usuarioActual = response.user;
@@ -755,9 +803,14 @@ function normalizeErrorText(message) {
 function clearLegacyAuthStorage() {
   localStorage.removeItem(API_CONFIG.legacyTokenKey);
   sessionStorage.removeItem(API_CONFIG.legacyTokenKey);
+  clearRememberedUser();
   /* Limpiar datos del usuario autenticado */
   sessionStorage.removeItem('usuarioActual');
   usuarioActual = null;
+}
+
+function clearRememberedUser() {
+  localStorage.removeItem(API_CONFIG.rememberedUserKey);
 }
 
 function handleFormError(error, form) {
