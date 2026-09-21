@@ -729,6 +729,10 @@ boton {
   z-index: auto;
 }
 
+.cerrar-sesion span {
+  font-family: "Segoe UI Symbol", sans-serif;
+}
+
 /* Barra superior y usuario */
 .barra-superior {
   align-items: center;
