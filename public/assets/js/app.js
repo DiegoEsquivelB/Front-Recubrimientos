@@ -2656,10 +2656,16 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   const initialQuantityGroup = initialQuantity?.closest('.grupo-formulario');
 
   const syncColorVariationFields = () => {
+    const canRegisterInventory = form.dataset.canRegisterInventory === 'true';
     const usesVariations = !material && Boolean(paintingCheckbox?.checked)
       && !colorVariationsGroup?.hidden;
-    if (initialQuantityGroup) initialQuantityGroup.hidden = usesVariations;
-    if (initialQuantity) initialQuantity.required = !material && !usesVariations && !form.querySelector('[data-inventory-initial]')?.hidden;
+    const minimumLabel = form.querySelector('label[for="modalMaterial-minimo"]');
+    if (minimumLabel) minimumLabel.textContent = usesVariations ? 'Stock mínimo (todas las variaciones)' : 'Stock mínimo';
+    if (initialQuantityGroup) initialQuantityGroup.hidden = !canRegisterInventory || usesVariations;
+    if (initialQuantity) {
+      initialQuantity.disabled = !canRegisterInventory || usesVariations;
+      initialQuantity.required = canRegisterInventory && !usesVariations;
+    }
     colorVariationList?.querySelectorAll('[data-variation-name], [data-variation-quantity]').forEach((input) => {
       input.required = usesVariations;
       input.disabled = !usesVariations;
@@ -2927,9 +2933,13 @@ function setupMaterialInitialInventory(form, canRegisterInventory) {
   const quantity = form.querySelector('#modalMaterial-stockInicial');
   if (!container || !fields || !quantity) return;
 
-  container.hidden = !canRegisterInventory;
+  form.dataset.canRegisterInventory = String(canRegisterInventory);
+  container.hidden = false;
+  quantity.closest('.grupo-formulario').hidden = !canRegisterInventory;
+  quantity.disabled = !canRegisterInventory;
   quantity.required = canRegisterInventory;
-  fields.hidden = !canRegisterInventory;
+  const reference = form.querySelector('#modalMaterial-referenciaInventario');
+  if (reference) reference.closest('.grupo-formulario').hidden = !canRegisterInventory;
 }
 
 async function openMaterialCategoriesModal() {

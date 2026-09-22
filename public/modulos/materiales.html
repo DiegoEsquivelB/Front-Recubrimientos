@@ -302,18 +302,6 @@
                 />
               </div>
 
-              <div class="grupo-formulario">
-                <label for="modalMaterial-minimo">Stock mínimo</label>
-                <input
-                  id="modalMaterial-minimo"
-                  name="stock_minimo"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="0"
-                />
-              </div>
-
               <div class="grupo-formulario grupo-formulario--full">
                 <label for="modalMaterial-descripcion">Descripción</label>
                 <div class="editor-texto" data-rich-text-editor="modalMaterial-descripcion"></div>
@@ -338,11 +326,7 @@
                 <img id="modalMaterial-imagenVista" alt="Vista previa del material" hidden style="display: block; max-width: 180px; max-height: 120px; margin-top: 10px; object-fit: contain; border-radius: 8px;" />
               </div>
 
-              <grupo-campos
-                class="grupo-campos grupo-formulario--full inventory-initial"
-                data-inventory-initial
-              >
-                <legend>Inventario inicial</legend>
+              <div class="grupo-formulario grupo-formulario--full inventory-initial" data-inventory-initial>
                 <div
                   class="campos-inventario-inicial"
                   data-inventory-initial-fields
@@ -366,6 +350,17 @@
                     ></small>
                   </div>
                   <div class="grupo-formulario">
+                    <label for="modalMaterial-minimo">Stock mínimo</label>
+                    <input
+                      id="modalMaterial-minimo"
+                      name="stock_minimo"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div class="grupo-formulario">
                     <label for="modalMaterial-referenciaInventario"
                       >Referencia</label
                     >
@@ -378,7 +373,7 @@
                     />
                   </div>
                 </div>
-              </grupo-campos>
+              </div>
             </form>
           </div>
           <div class="modal-footer">
