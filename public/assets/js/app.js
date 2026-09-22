@@ -2619,6 +2619,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     imagePreview.src = source || '';
     imagePreview.hidden = !source;
   };
+  if (imageInput) imageInput.required = !material;
   if (imageInput) imageInput.value = '';
   if (imageValue) imageValue.value = '';
   setImagePreview('');
@@ -2666,6 +2667,10 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       initialQuantity.disabled = !canRegisterInventory || usesVariations;
       initialQuantity.required = canRegisterInventory && !usesVariations;
     }
+    const minimumInput = form.querySelector('#modalMaterial-minimo');
+    if (minimumInput) minimumInput.required = true;
+    const brandInput = form.querySelector('#modalMaterial-marca');
+    if (brandInput) brandInput.required = true;
     colorVariationList?.querySelectorAll('[data-variation-name], [data-variation-quantity]').forEach((input) => {
       input.required = usesVariations;
       input.disabled = !usesVariations;
@@ -3576,6 +3581,8 @@ async function setupInventoryModule() {
   const btnGuardarMovimiento = document.getElementById('btnGuardarMovimiento');
   const form = document.getElementById('formMovimientoInventario');
 
+  if (form) setupInventoryCostField(form);
+
   if (btnNuevoMovimiento) {
     btnNuevoMovimiento.addEventListener('click', () => {
       openInventoryMovementModal();
@@ -3606,6 +3613,7 @@ async function openInventoryMovementModal() {
   if (!modal || !form || typeof bootstrap === 'undefined') return;
 
   form.reset();
+  setupInventoryCostField(form);
   setRichTextValue('movimiento-observacion');
   clearFormErrors();
   setDefaultDate();
@@ -3616,20 +3624,33 @@ async function openInventoryMovementModal() {
   bootstrapModal.show();
 }
 
+function setupInventoryCostField(form) {
+  const typeSelect = form.querySelector('#movimiento-tipo');
+  const costInput = form.querySelector('#movimiento-costo');
+  const costGroup = costInput?.closest('.grupo-formulario');
+  const costLabel = form.querySelector('label[for="movimiento-costo"]');
+  if (!typeSelect || !costInput || !costGroup || typeSelect.dataset.costFieldReady) return;
+
+  const updateCostField = () => {
+    const isEntry = typeSelect.value === 'Entrada';
+    costGroup.hidden = !isEntry;
+    costInput.disabled = !isEntry;
+    costInput.required = isEntry;
+    if (!isEntry) costInput.value = '';
+    if (costLabel) costLabel.textContent = 'Costo unitario (Q)' + (isEntry ? ' *' : '');
+  };
+
+  typeSelect.addEventListener('change', updateCostField);
+  typeSelect.dataset.costFieldReady = 'true';
+  updateCostField();
+}
+
 async function saveInventoryMovement() {
   const modal = document.getElementById('modalMovimientoInventario');
   const form = document.getElementById('formMovimientoInventario');
   if (!form) return;
 
-  const typeSelect = form.querySelector('#movimiento-tipo');
-  const costInput = form.querySelector('#movimiento-costo');
-  if (typeSelect && costInput) {
-    const updateCostRequirement = () => {
-      costInput.required = typeSelect.value === 'Entrada';
-    };
-    typeSelect.addEventListener('change', updateCostRequirement);
-    updateCostRequirement();
-  }
+  setupInventoryCostField(form);
 
   try {
     clearFormErrors();

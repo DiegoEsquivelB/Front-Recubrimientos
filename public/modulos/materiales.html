@@ -222,13 +222,14 @@
               </div>
 
               <div class="grupo-formulario">
-                <label for="modalMaterial-marca">Marca</label>
+                <label for="modalMaterial-marca">Marca *</label>
                 <input
                   id="modalMaterial-marca"
                   name="marca"
                   type="text"
                   maxlength="80"
                   placeholder="Ej. Lanco"
+                  required
                 />
               </div>
 
@@ -291,7 +292,7 @@
               </div>
 
               <div class="grupo-formulario">
-                <label for="modalMaterial-costo">Costo unitario (Q)</label>
+                <label for="modalMaterial-costo">Costo unitario (Q) *</label>
                 <input
                   id="modalMaterial-costo"
                   name="costo"
@@ -299,6 +300,7 @@
                   min="0"
                   step="0.01"
                   placeholder="0.00"
+                  required
                 />
               </div>
 
@@ -314,7 +316,7 @@
               </div>
 
               <div class="grupo-formulario grupo-formulario--full">
-                <label for="modalMaterial-imagen">Imagen del material</label>
+                <label for="modalMaterial-imagen">Imagen del material *</label>
                 <input
                   id="modalMaterial-imagen"
                   name="imagen_archivo"
@@ -350,7 +352,7 @@
                     ></small>
                   </div>
                   <div class="grupo-formulario">
-                    <label for="modalMaterial-minimo">Stock mínimo</label>
+                    <label for="modalMaterial-minimo">Stock mínimo *</label>
                     <input
                       id="modalMaterial-minimo"
                       name="stock_minimo"
@@ -358,6 +360,7 @@
                       min="0"
                       step="1"
                       placeholder="0"
+                      required
                     />
                   </div>
                   <div class="grupo-formulario">
