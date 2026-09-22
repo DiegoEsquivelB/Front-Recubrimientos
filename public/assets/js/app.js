@@ -2646,34 +2646,52 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
 
   const categorySelect = form.querySelector('#modalMaterial-categoria');
   const codeInput = form.querySelector('#modalMaterial-codigo');
-  const colorVariationsInput = form.querySelector('#modalMaterial-colores');
   const colorVariationsGroup = form.querySelector('[data-color-variations]');
+  const addColorVariationButton = form.querySelector('[data-add-color-variation]');
   const paintingCheckbox = form.querySelector('#modalMaterial-esPintura');
-  const colorCodeGroup = form.querySelector('[data-color-code]');
+  const paintingGroup = paintingCheckbox?.closest('.grupo-formulario');
   const colorVariationList = form.querySelector('[data-color-variation-list]');
+  if (colorVariationList) colorVariationList.innerHTML = '';
+  const initialQuantity = form.querySelector('#modalMaterial-stockInicial');
+  const initialQuantityGroup = initialQuantity?.closest('.grupo-formulario');
 
-  const getVariationColors = () => [...new Set((colorVariationsInput?.value || '')
-    .split(',')
-    .map((color) => color.trim())
-    .filter(Boolean))];
-
-  const renderColorVariationEditors = () => {
-    if (!colorVariationList) return;
-    const previousCodes = new Map([...colorVariationList.querySelectorAll('[data-variation-color]')]
-      .map((input) => [input.dataset.variationColor, input.value]));
-    const colors = getVariationColors();
-    colorVariationList.innerHTML = colors.map((color, index) => {
-      const value = previousCodes.get(color) || '#ffffff';
-      return `<div class="fila-codigo-color" data-color-row>
-        <strong>${escapeHtml(color)}</strong>
-        <input type="color" data-variation-color="${escapeAttribute(color)}" value="${value}" aria-label="Código de color para ${escapeAttribute(color)}">
-        <output data-variation-output>${formatColorCode(value)}</output>
-      </div>`;
-    }).join('');
+  const syncColorVariationFields = () => {
+    const usesVariations = !material && Boolean(paintingCheckbox?.checked)
+      && !colorVariationsGroup?.hidden;
+    if (initialQuantityGroup) initialQuantityGroup.hidden = usesVariations;
+    if (initialQuantity) initialQuantity.required = !material && !usesVariations && !form.querySelector('[data-inventory-initial]')?.hidden;
+    colorVariationList?.querySelectorAll('[data-variation-name], [data-variation-quantity]').forEach((input) => {
+      input.required = usesVariations;
+      input.disabled = !usesVariations;
+    });
   };
 
-  const getColorVariations = () => [...(colorVariationList?.querySelectorAll('[data-variation-color]') || [])]
-    .map((input) => ({ color: input.dataset.variationColor, codigo_color: input.value }));
+  addColorVariationButton.onclick = () => {
+    colorVariationList.insertAdjacentHTML('beforeend', `<div class="fila-codigo-color" data-color-row>
+      <label class="campo-variacion">Color
+        <input type="text" data-variation-name maxlength="60" placeholder="Ej. Blanco">
+      </label>
+      <label class="campo-variacion campo-variacion--codigo">Código HEX
+        <span class="selector-variacion-color">
+          <input type="color" data-variation-color value="#ffffff" aria-label="Seleccionar código de color">
+          <output data-variation-output>#FFFFFF</output>
+        </span>
+      </label>
+      <label class="campo-variacion">Cantidad inicial
+        <input type="number" data-variation-quantity min="0.01" step="0.01" placeholder="0.00">
+      </label>
+      <button type="button" class="boton-quitar-variacion" data-remove-color-variation title="Quitar variación" aria-label="Quitar variación">×</button>
+    </div>`);
+    syncColorVariationFields();
+    colorVariationList.lastElementChild.querySelector('[data-variation-name]').focus();
+  };
+
+  const getColorVariations = () => [...(colorVariationList?.querySelectorAll('[data-color-row]') || [])]
+    .map((row) => ({
+      color: row.querySelector('[data-variation-name]').value.trim(),
+      codigo_color: row.querySelector('[data-variation-color]').value,
+      stock_inicial: row.querySelector('[data-variation-quantity]')?.value
+    }));
   const updateLaborFields = () => {
     const selectedCategoryName = categorySelect?.selectedOptions[0]?.textContent || categorySelect?.value || '';
     const normalizedCategory = normalizeErrorText(selectedCategoryName);
@@ -2681,25 +2699,26 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     const supportsColorVariants = Boolean(paintingCheckbox?.checked) && !isLabor;
     const laborPriceLabel = form.querySelector('label[for="modalMaterial-costo"]');
     if (laborPriceLabel) laborPriceLabel.textContent = isLabor ? 'Precio por m² (Q)' : 'Costo unitario (Q)';
-    if (colorVariationsGroup) colorVariationsGroup.hidden = !supportsColorVariants;
-    if (colorVariationsGroup && colorVariationsInput) {
-      colorVariationsGroup.querySelector('label').textContent = material ? 'Color' : 'Variaciones por color';
-      colorVariationsInput.placeholder = material ? 'Ej. Blanco' : 'Ej. Blanco, Rojo ladrillo, Gris';
-    }
-    if (colorCodeGroup) colorCodeGroup.hidden = !supportsColorVariants;
+    if (paintingGroup) paintingGroup.hidden = Boolean(material);
+    if (colorVariationsGroup) colorVariationsGroup.hidden = Boolean(material) || !supportsColorVariants;
     if (paintingCheckbox) {
       paintingCheckbox.disabled = isLabor;
       if (isLabor) paintingCheckbox.checked = false;
     }
     setupMaterialInitialInventory(form, !material && !isLabor);
+    syncColorVariationFields();
   };
   paintingCheckbox?.addEventListener('change', updateLaborFields);
-  colorVariationsInput?.addEventListener('input', renderColorVariationEditors);
-  colorVariationList?.addEventListener('input', (event) => {
+  colorVariationList.onclick = (event) => {
+    if (!event.target.closest('[data-remove-color-variation]')) return;
+    event.target.closest('[data-color-row]').remove();
+    syncColorVariationFields();
+  };
+  colorVariationList.oninput = (event) => {
     const input = event.target.closest('[data-variation-color]');
-    const output = input?.parentElement.querySelector('[data-variation-output]');
+    const output = input?.closest('[data-color-row]').querySelector('[data-variation-output]');
     if (input && output) output.textContent = formatColorCode(input.value);
-  });
+  };
   categorySelect?.addEventListener('change', updateLaborFields);
   updateLaborFields();
   if (codeInput) {
@@ -2747,15 +2766,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     form.querySelector('#modalMaterial-rendimiento').value = material.rendimiento ?? '';
     form.querySelector('#modalMaterial-costo').value = material.costo ?? '';
     form.querySelector('#modalMaterial-minimo').value = material.stock_minimo ?? material.stockMinimo ?? '';
-    if (colorVariationsInput) colorVariationsInput.value = material.color || '';
     if (paintingCheckbox) paintingCheckbox.checked = Boolean(material.color || material.codigo_color);
-    renderColorVariationEditors();
-    const variationColorInput = colorVariationList?.querySelector('[data-variation-color]');
-    if (variationColorInput) {
-      variationColorInput.value = material.codigo_color || '#ffffff';
-      const output = variationColorInput.parentElement.querySelector('[data-variation-output]');
-      if (output) output.textContent = formatColorCode(variationColorInput.value);
-    }
     setRichTextValue('modalMaterial-descripcion', material.descripcion || '');
     if (imageValue) imageValue.value = material.imagen || '';
     setImagePreview(material.imagen || '');
@@ -2767,7 +2778,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   }
 
   updateLaborFields();
-  renderColorVariationEditors();
+  syncColorVariationFields();
 
   form.dataset.endpoint = endpoint;
 
@@ -2778,6 +2789,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
 
       if (!form.checkValidity()) {
         displayValidationErrors(form);
+        form.querySelector(':invalid')?.reportValidity();
         return;
       }
 
@@ -2798,9 +2810,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
         }
       }
 
-      const colorValue = colorVariationsInput?.value.trim() || '';
       const colorVariations = getColorVariations();
-      delete payload.colores_variaciones;
       delete payload.codigo_color;
       payload.codigo = (form.querySelector('#modalMaterial-codigo')?.value || '').trim();
 
@@ -2814,9 +2824,8 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       if (!isCreating) {
         delete payload.stock_inicial;
         delete payload.referencia_inventario;
-        const variation = colorVariations[0];
-        payload.color = variation?.color || colorValue || null;
-        payload.codigo_color = variation?.codigo_color || null;
+        payload.color = material.color || null;
+        payload.codigo_color = material.codigo_color || null;
       }
 
       const requestUrl = isCreating ? endpoint : `${endpoint}/${materialId}`;
@@ -2825,13 +2834,29 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       const categoryName = normalizeErrorText(payload.categoria || payload.tipo || '');
       const supportsColorVariants = Boolean(form.querySelector('#modalMaterial-esPintura')?.checked)
         && categoryName !== 'mano de obra';
-      if (!supportsColorVariants) {
+      if (isCreating && !supportsColorVariants) {
         delete payload.color;
         delete payload.codigo_color;
       }
       const colors = isCreating && supportsColorVariants
         ? colorVariations
         : [];
+      if (isCreating && supportsColorVariants && !colors.length) {
+        showToast('Agregue al menos una variación de color.', 'error');
+        return;
+      }
+      const seenColors = new Set();
+      const duplicateColor = colors.find((variation) => {
+        const normalized = variation.color.toLocaleLowerCase();
+        if (seenColors.has(normalized)) return true;
+        seenColors.add(normalized);
+        return false;
+      });
+      if (duplicateColor) {
+        showToast(`El color ${duplicateColor.color} está repetido.`, 'error');
+        return;
+      }
+      if (colors.length) delete payload.stock_inicial;
       let responses = null;
       if (colors.length) {
         responses = await apiRequest(requestUrl, {
@@ -2900,14 +2925,11 @@ function setupMaterialInitialInventory(form, canRegisterInventory) {
   const container = form.querySelector('[data-inventory-initial]');
   const fields = form.querySelector('[data-inventory-initial-fields]');
   const quantity = form.querySelector('#modalMaterial-stockInicial');
-  const reference = form.querySelector('#modalMaterial-referenciaInventario');
   if (!container || !fields || !quantity) return;
 
   container.hidden = !canRegisterInventory;
-  quantity.value = '';
   quantity.required = canRegisterInventory;
   fields.hidden = !canRegisterInventory;
-  if (reference) reference.value = '';
 }
 
 async function openMaterialCategoriesModal() {

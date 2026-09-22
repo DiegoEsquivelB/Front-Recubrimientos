@@ -1530,21 +1530,73 @@ boton {
   gap: 8px;
 }
 
-.fila-codigo-color {
+.encabezado-variaciones-color {
   align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.encabezado-variaciones-color label {
+  margin: 0;
+}
+
+.boton-agregar-variacion,
+.boton-quitar-variacion {
+  align-items: center;
+  border: 1px solid #cbd9de;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 22px;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  width: 36px;
+}
+
+.boton-agregar-variacion {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.boton-quitar-variacion {
+  background: #fff;
+  color: var(--danger);
+}
+
+.fila-codigo-color {
+  align-items: end;
   background: #f7fafb;
   border: 1px solid #dce7ec;
   border-radius: 8px;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(100px, 1fr) 44px minmax(170px, auto);
-  padding: 7px 9px;
+  grid-template-columns: minmax(130px, 1.4fr) minmax(125px, 1fr) minmax(110px, 1fr) 36px;
+  padding: 10px;
 }
 
-.fila-codigo-color strong {
+.campo-variacion {
   color: var(--ink);
-  font-size: 13px;
-  overflow-wrap: anywhere;
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  margin: 0;
+  min-width: 0;
+}
+
+.campo-variacion input[type="text"],
+.campo-variacion input[type="number"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.selector-variacion-color {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 36px;
+  min-width: 0;
 }
 
 .fila-codigo-color input[type="color"] {
@@ -1560,6 +1612,7 @@ boton {
   color: var(--texto-suave);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .detalle-material__color {
@@ -2989,11 +3042,16 @@ td {
 
 @media (max-width: 560px) {
   .fila-codigo-color {
-    grid-template-columns: minmax(0, 1fr) 40px;
+    grid-template-columns: minmax(0, 1fr) 36px;
   }
 
-  .fila-codigo-color output {
-    grid-column: 1 / -1;
+  .fila-codigo-color .campo-variacion {
+    grid-column: 1;
+  }
+
+  .fila-codigo-color .boton-quitar-variacion {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .modal-detalle-material .modal-body {

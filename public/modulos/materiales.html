@@ -233,21 +233,11 @@
               </div>
 
               <div class="grupo-formulario grupo-formulario--full campo-variaciones-color" data-color-variations>
-                <label for="modalMaterial-colores">Variaciones por color</label>
-                <input
-                  id="modalMaterial-colores"
-                  name="colores_variaciones"
-                  type="text"
-                  maxlength="500"
-                  placeholder="Ej. Blanco, Rojo ladrillo, Gris"
-                />
-                <small class="text-muted">Escriba varios colores separados por coma. Se creará una pintura por cada color usando la misma descripción e imagen.</small>
-              </div>
-
-              <div class="grupo-formulario campo-codigo-color" data-color-code>
-                <label>Código RGB/HEX por variación</label>
+                <div class="encabezado-variaciones-color">
+                  <label>Variaciones por color</label>
+                  <button type="button" class="boton-agregar-variacion" data-add-color-variation title="Agregar variación" aria-label="Agregar variación">+</button>
+                </div>
                 <div class="lista-codigos-color" data-color-variation-list></div>
-                <small class="text-muted">Seleccione un código diferente para cada color.</small>
               </div>
 
               <div class="grupo-formulario">
