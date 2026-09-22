@@ -3,6 +3,7 @@ const API_CONFIG = {
   legacyTokenKey: 'recubrimientos_token',
   rememberedUserKey: 'recubrimientos_usuario_recordado'
 };
+const MATERIAL_IMAGE_MAX_MB = 5;
 
 const browserWindow = typeof window !== 'undefined' ? window : globalThis;
 if (browserWindow) {
@@ -2555,9 +2556,9 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     imageInput.onchange = () => {
       const file = imageInput.files?.[0];
       if (!file) return;
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > MATERIAL_IMAGE_MAX_MB * 1024 * 1024) {
         imageInput.value = '';
-        showToast('Seleccione una imagen JPG, PNG o WebP de máximo 2 MB.', 'error');
+        showToast(`Seleccione una imagen JPG, PNG o WebP de máximo ${MATERIAL_IMAGE_MAX_MB} MB.`, 'error');
         return;
       }
       const reader = new FileReader();

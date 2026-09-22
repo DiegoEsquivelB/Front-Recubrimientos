@@ -81,7 +81,7 @@ Front-ProyectoG2/
 
 ## Materiales e inventario
 
-En el módulo Materiales se puede cargar una imagen JPG, PNG o WebP de hasta 2 MB al crear o editar un material. El formulario muestra una vista previa antes de guardar y conserva la imagen anterior cuando se edita sin seleccionar un nuevo archivo.
+En el módulo Materiales se puede cargar una imagen JPG, PNG o WebP de hasta 5 MB al crear o editar un material. El formulario muestra una vista previa antes de guardar y conserva la imagen anterior cuando se edita sin seleccionar un nuevo archivo.
 
 El catálogo separa los materiales en las pestañas `Activos` y `Archivados`. Desde Activos se puede archivar un material para retirarlo del catálogo sin perder su historial. Desde Archivados se puede desarchivar o eliminar definitivamente; la eliminación borra movimientos, lotes, inventario y relaciones asociadas.
 
