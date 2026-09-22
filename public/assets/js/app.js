@@ -2155,6 +2155,7 @@ function showMaterialDetail(material) {
       <span class="badge badge--success">Material activo</span>
       <div class="detalle-material__datos">
         <div><span>Categoría</span><strong>${escapeHtml(material.categoria || material.tipo || '—')}</strong></div>
+        <div><span>Marca</span><strong>${escapeHtml(material.marca || '—')}</strong></div>
         <div><span>Color</span><strong>${escapeHtml(material.color || '—')}</strong></div>
         <div><span>Código RGB/HEX</span><strong class="detalle-material__color"><i style="background-color: ${escapeAttribute(material.codigo_color || '#ffffff')}"></i>${escapeHtml(material.codigo_color ? formatColorCode(material.codigo_color) : '—')}</strong></div>
         <div><span>Unidad</span><strong>${escapeHtml(material.unidad || material.unidad_medida || '—')}</strong></div>
@@ -2700,6 +2701,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     }
 
     form.querySelector('#modalMaterial-nombre').value = material.nombre || '';
+    form.querySelector('#modalMaterial-marca').value = material.marca || '';
     form.querySelector('#modalMaterial-unidad').value = material.unidad || '';
     form.querySelector('#modalMaterial-rendimiento').value = material.rendimiento ?? '';
     form.querySelector('#modalMaterial-costo').value = material.costo ?? '';

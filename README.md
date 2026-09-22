@@ -89,7 +89,7 @@ En Inventario, las entradas permiten indicar un `costo_unitario`. Un mismo mater
 
 En el detalle de proyectos aparece el botón `Detalle lote` cuando existe información PEPS. Ese modal muestra los lotes utilizados, la cantidad tomada y el costo unitario aplicado.
 
-El catálogo de materiales incluye el botón `Ver detalle`, que abre una vista de solo lectura con la imagen, código, categoría, unidad, rendimiento, costo, stock mínimo y descripción del material. La vista se organiza en dos columnas en PC y en una columna en dispositivos móviles.
+El catálogo de materiales incluye el botón `Ver detalle`, que abre una vista de solo lectura con la imagen, código, nombre, marca, categoría, unidad, rendimiento, costo, stock mínimo y descripción del material. La vista se organiza en dos columnas en PC y en una columna en dispositivos móviles.
 
 Al crear un material, el checkbox `Es pintura y permite variaciones por color` habilita los campos de color. Allí se pueden escribir varios colores separados por coma. El sistema crea una variación independiente por color, con código, inventario y nombre propios, reutilizando la descripción, imagen, unidad, rendimiento y precios comunes, sin depender del nombre de la categoría.
 
