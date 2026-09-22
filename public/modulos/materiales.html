@@ -214,6 +214,27 @@
                 ></small>
               </div>
 
+              <div class="grupo-formulario grupo-formulario--full campo-variaciones-color" data-color-variations>
+                <label for="modalMaterial-colores">Variaciones por color</label>
+                <input
+                  id="modalMaterial-colores"
+                  name="colores_variaciones"
+                  type="text"
+                  maxlength="500"
+                  placeholder="Ej. Blanco, Rojo ladrillo, Gris"
+                />
+                <small class="text-muted">Escriba varios colores separados por coma. Se creará una pintura por cada color usando la misma descripción e imagen.</small>
+              </div>
+
+              <div class="grupo-formulario campo-codigo-color" data-color-code>
+                <label for="modalMaterial-codigoColor">Código RGB/HEX</label>
+                <div class="selector-color">
+                  <input id="modalMaterial-codigoColor" name="codigo_color" type="color" value="#ffffff" aria-label="Seleccionar color" />
+                  <output id="modalMaterial-codigoColorValor">#FFFFFF · rgb(255, 255, 255)</output>
+                </div>
+                <small class="text-muted">Seleccione el color representativo de la pintura.</small>
+              </div>
+
               <div class="grupo-formulario">
                 <label for="modalMaterial-categoria">Categoría *</label>
                 <select id="modalMaterial-categoria" name="categoria" required>

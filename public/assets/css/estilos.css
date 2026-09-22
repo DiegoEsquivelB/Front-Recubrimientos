@@ -1462,6 +1462,42 @@ boton {
   line-height: 1.55;
 }
 
+.selector-color {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.selector-color input[type="color"] {
+  border: 1px solid #cedce0;
+  border-radius: 8px;
+  cursor: pointer;
+  height: 42px;
+  padding: 3px;
+  width: 52px;
+}
+
+.selector-color output {
+  color: var(--texto-suave);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.detalle-material__color {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.detalle-material__color i {
+  border: 1px solid #c7d4d9;
+  border-radius: 50%;
+  display: inline-block;
+  height: 18px;
+  width: 18px;
+}
+
 .modal-eliminar-material__warning {
   color: var(--danger);
   font-weight: 700;
@@ -1504,6 +1540,10 @@ boton {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.grupo-formulario[hidden] {
+  display: none;
 }
 
 .grupo-formulario--full {
@@ -1786,6 +1826,11 @@ td {
   margin-top: 3px;
 }
 
+#tabla-materiales .material-menu-trigger,
+#tabla-materiales .material-menu {
+  display: none;
+}
+
 @media (max-width: 640px) {
   .contenedor-tabla,
   .tabla-reporte {
@@ -1894,6 +1939,91 @@ td {
   #tabla-materiales tbody tr:not(.empty-table) td:first-child img {
     height: 58px !important;
     width: 58px !important;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) {
+    cursor: pointer;
+    position: relative;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:nth-child(5),
+  #tabla-materiales tbody tr:not(.empty-table) td:nth-child(6),
+  #tabla-materiales tbody tr:not(.empty-table) td:nth-child(7),
+  #tabla-materiales tbody tr:not(.empty-table) td:nth-child(8) {
+    display: none;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:last-child {
+    background: transparent;
+    border-top: 0;
+    display: block;
+    padding: 8px;
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:last-child::before,
+  #tabla-materiales tbody tr:not(.empty-table) td:last-child .boton {
+    display: none;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:last-child .material-menu-trigger {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    color: var(--primary);
+    display: inline-flex;
+    font-size: 25px;
+    font-weight: 800;
+    height: 34px;
+    justify-content: center;
+    line-height: 1;
+    padding: 0 4px 8px;
+    width: 34px;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:last-child .material-menu-trigger:active,
+  #tabla-materiales tbody tr:not(.empty-table) td:last-child .material-menu-trigger:focus-visible {
+    background: #eaf5f7;
+    outline: 0;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:last-child .material-menu {
+    background: #fff;
+    border: 1px solid #dbe7ec;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(25, 59, 80, .16);
+    display: block;
+    min-width: 130px;
+    padding: 5px;
+    position: absolute;
+    right: 12px;
+    top: 46px;
+    z-index: 3;
+  }
+
+  .material-menu[hidden] {
+    display: none;
+  }
+
+  .material-menu button {
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    color: var(--ink);
+    display: block;
+    font-size: 13px;
+    padding: 9px 12px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .material-menu button:hover,
+  .material-menu button:focus-visible {
+    background: #eef7f8;
+    outline: 0;
   }
 
   .contenedor-tabla > table .empty-table,

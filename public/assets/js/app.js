@@ -73,6 +73,14 @@ function syncRichTextEditors() {
   });
 }
 
+function formatColorCode(value = '#ffffff') {
+  const hex = /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : '#FFFFFF';
+  const red = parseInt(hex.slice(1, 3), 16);
+  const green = parseInt(hex.slice(3, 5), 16);
+  const blue = parseInt(hex.slice(5, 7), 16);
+  return `${hex} · rgb(${red}, ${green}, ${blue})`;
+}
+
 function sanitizeRichText(value) {
   if (!value) return '';
   const template = document.createElement('template');
@@ -1754,6 +1762,11 @@ async function loadCrudLists() {
             <td>${costo}</td>
             <td>${stockMinimo}</td>
             <td>
+              <button class="material-menu-trigger" type="button" data-material-menu-trigger aria-label="Más opciones" aria-expanded="false">⋮</button>
+              <div class="material-menu" data-material-menu hidden>
+                <button type="button" data-material-menu-action="edit">Editar</button>
+                <button type="button" data-material-menu-action="delete">${mostrarMaterialesArchivados ? 'Desarchivar' : 'Eliminar'}</button>
+              </div>
               <button class="boton boton-icono" type="button" data-view-material data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
               ${mostrarMaterialesArchivados
                 ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="materiales" title="Desarchivar material">Desarchivar</button>`
@@ -1770,6 +1783,7 @@ async function loadCrudLists() {
       bindEditButtons(table);
       bindLaborEditButtons(table);
       bindViewMaterialButtons(table);
+      bindMaterialMobileMenus(table);
       bindDeleteButtons(table);
       bindArchiveButtons(table);
       bindUnarchiveButtons(table);
@@ -2084,6 +2098,42 @@ function bindViewMaterialButtons(table) {
   });
 }
 
+function bindMaterialMobileMenus(table) {
+  table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
+    row.onclick = (event) => {
+      if (event.target.closest('button, a, [data-material-menu]')) return;
+      row.querySelector('[data-view-material]')?.click();
+    };
+  });
+
+  table.querySelectorAll('[data-material-menu-trigger]').forEach((trigger) => {
+    const menu = trigger.parentElement.querySelector('[data-material-menu]');
+    if (!menu) return;
+
+    trigger.onclick = (event) => {
+      event.stopPropagation();
+      const shouldOpen = menu.hidden;
+      table.querySelectorAll('[data-material-menu]').forEach((item) => { item.hidden = true; });
+      table.querySelectorAll('[data-material-menu-trigger]').forEach((item) => { item.setAttribute('aria-expanded', 'false'); });
+      menu.hidden = !shouldOpen;
+      trigger.setAttribute('aria-expanded', String(shouldOpen));
+    };
+
+    menu.querySelectorAll('[data-material-menu-action]').forEach((option) => {
+      option.onclick = () => {
+        const action = option.dataset.materialMenuAction;
+        const row = trigger.closest('tr');
+        const target = action === 'edit'
+          ? row?.querySelector('[data-edit-id], [data-edit-labor-id]')
+          : row?.querySelector('[data-delete-id], [data-archive-id], [data-unarchive-id]');
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+        target?.click();
+      };
+    });
+  });
+}
+
 function showMaterialDetail(material) {
   const modal = document.getElementById('modalDetalleMaterial');
   const content = document.getElementById('detalleMaterialContent');
@@ -2105,6 +2155,8 @@ function showMaterialDetail(material) {
       <span class="badge badge--success">Material activo</span>
       <div class="detalle-material__datos">
         <div><span>Categoría</span><strong>${escapeHtml(material.categoria || material.tipo || '—')}</strong></div>
+        <div><span>Color</span><strong>${escapeHtml(material.color || '—')}</strong></div>
+        <div><span>Código RGB/HEX</span><strong class="detalle-material__color"><i style="background-color: ${escapeAttribute(material.codigo_color || '#ffffff')}"></i>${escapeHtml(material.codigo_color ? formatColorCode(material.codigo_color) : '—')}</strong></div>
         <div><span>Unidad</span><strong>${escapeHtml(material.unidad || material.unidad_medida || '—')}</strong></div>
         <div><span>Rendimiento</span><strong>${escapeHtml(String(rendimiento))} m²</strong></div>
         <div><span>Costo unitario</span><strong>${costo === undefined || costo === null ? '—' : `Q ${Number(costo).toFixed(2)}`}</strong></div>
@@ -2577,12 +2629,27 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
 
   const categorySelect = form.querySelector('#modalMaterial-categoria');
   const codeInput = form.querySelector('#modalMaterial-codigo');
+  const colorVariationsInput = form.querySelector('#modalMaterial-colores');
+  const colorVariationsGroup = form.querySelector('[data-color-variations]');
+  const colorCodeInput = form.querySelector('#modalMaterial-codigoColor');
+  const colorCodeOutput = form.querySelector('#modalMaterial-codigoColorValor');
   const updateLaborFields = () => {
     const isLabor = normalizeErrorText(categorySelect?.value) === 'mano de obra';
+    const isPaint = normalizeErrorText(categorySelect?.value) === 'pintura';
     const laborPriceLabel = form.querySelector('label[for="modalMaterial-costo"]');
     if (laborPriceLabel) laborPriceLabel.textContent = isLabor ? 'Precio por m² (Q)' : 'Costo unitario (Q)';
+    if (colorVariationsGroup) colorVariationsGroup.hidden = !isPaint;
+    if (colorVariationsGroup && colorVariationsInput) {
+      colorVariationsGroup.querySelector('label').textContent = material ? 'Color' : 'Variaciones por color';
+      colorVariationsInput.placeholder = material ? 'Ej. Blanco' : 'Ej. Blanco, Rojo ladrillo, Gris';
+    }
+    const colorCodeGroup = form.querySelector('[data-color-code]');
+    if (colorCodeGroup) colorCodeGroup.hidden = !isPaint;
     setupMaterialInitialInventory(form, !material && !isLabor);
   };
+  colorCodeInput?.addEventListener('input', () => {
+    if (colorCodeOutput) colorCodeOutput.textContent = formatColorCode(colorCodeInput.value);
+  });
   categorySelect?.addEventListener('change', updateLaborFields);
   updateLaborFields();
   if (codeInput) {
@@ -2629,6 +2696,9 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     form.querySelector('#modalMaterial-rendimiento').value = material.rendimiento ?? '';
     form.querySelector('#modalMaterial-costo').value = material.costo ?? '';
     form.querySelector('#modalMaterial-minimo').value = material.stock_minimo ?? material.stockMinimo ?? '';
+    if (colorVariationsInput) colorVariationsInput.value = material.color || '';
+    if (colorCodeInput) colorCodeInput.value = material.codigo_color || '#ffffff';
+    if (colorCodeOutput) colorCodeOutput.textContent = formatColorCode(colorCodeInput?.value);
     setRichTextValue('modalMaterial-descripcion', material.descripcion || '');
     if (imageValue) imageValue.value = material.imagen || '';
     setImagePreview(material.imagen || '');
@@ -2638,6 +2708,8 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       await updateGeneratedCode();
     }
   }
+
+  updateLaborFields();
 
   form.dataset.endpoint = endpoint;
 
@@ -2668,6 +2740,8 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
         }
       }
 
+      const colorValue = colorVariationsInput?.value.trim() || '';
+      delete payload.colores_variaciones;
       payload.codigo = (form.querySelector('#modalMaterial-codigo')?.value || '').trim();
 
       const isCreating = !materialId;
@@ -2680,17 +2754,31 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       if (!isCreating) {
         delete payload.stock_inicial;
         delete payload.referencia_inventario;
+        payload.color = colorValue || null;
       }
 
       const requestUrl = isCreating ? endpoint : `${endpoint}/${materialId}`;
       const method = isCreating ? 'POST' : 'PUT';
 
-      const response = await apiRequest(requestUrl, {
-        method,
-        body: payload
-      });
+      const categoryName = normalizeErrorText(payload.categoria || payload.tipo || '');
+      if (categoryName !== 'pintura') delete payload.codigo_color;
+      const colors = isCreating && categoryName === 'pintura'
+        ? [...new Set(colorValue.split(',').map((color) => color.trim()).filter(Boolean))]
+        : [];
+      const responses = colors.length
+        ? await colors.reduce(async (previous, color) => {
+          await previous;
+          return apiRequest(requestUrl, {
+            method,
+            body: { ...payload, nombre: `${payload.nombre} - ${color}`, color }
+          });
+        }, Promise.resolve())
+        : await apiRequest(requestUrl, { method, body: payload });
 
-      showToast(response?.message || (isCreating ? 'Material registrado correctamente.' : 'Material actualizado correctamente.'), 'success');
+      const successMessage = colors.length
+        ? `${colors.length} variaciones de pintura creadas correctamente.`
+        : (responses?.message || (isCreating ? 'Material registrado correctamente.' : 'Material actualizado correctamente.'));
+      showToast(successMessage, 'success');
 
       const bootstrapModal = bootstrap.Modal.getInstance(modal);
       if (bootstrapModal) bootstrapModal.hide();
