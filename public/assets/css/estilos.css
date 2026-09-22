@@ -1787,96 +1787,128 @@ td {
 }
 
 @media (max-width: 640px) {
-  #tabla-inventario,
-  #tabla-movimientos {
+  .contenedor-tabla,
+  .tabla-reporte {
+    overflow: visible;
+  }
+
+  .contenedor-tabla > table,
+  .tabla-reporte > table {
     display: block;
     min-width: 0;
     width: 100%;
+    white-space: normal;
   }
 
-  #tabla-inventario thead,
-  #tabla-movimientos thead {
+  .contenedor-tabla > table thead,
+  .tabla-reporte > table thead {
     display: none;
   }
 
-  #tabla-inventario tbody,
-  #tabla-movimientos tbody {
+  .contenedor-tabla > table tbody,
+  .tabla-reporte > table tbody {
     display: grid;
     gap: 10px;
   }
 
-  #tabla-inventario tr,
-  #tabla-movimientos tr {
+  .contenedor-tabla > table tbody tr:not(.empty-table),
+  .tabla-reporte > table tbody tr:not(.empty-table) {
     background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 12px;
+    border: 1px solid #dce7ec;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(25, 59, 80, .06);
     display: block;
     overflow: hidden;
   }
 
-  #tabla-inventario td,
-  #tabla-movimientos td {
-    align-items: center;
-    border-top: 1px solid var(--line);
+  .contenedor-tabla > table tbody tr:not(.empty-table) td,
+  .tabla-reporte > table tbody tr:not(.empty-table) td {
+    align-items: flex-start;
+    border-top: 1px solid #edf2f4;
     display: flex;
     gap: 12px;
     justify-content: space-between;
     min-width: 0;
+    overflow-wrap: anywhere;
     padding: 9px 12px;
     text-align: right;
-    overflow-wrap: anywhere;
   }
 
-  #tabla-inventario td:first-child,
-  #tabla-movimientos td:first-child {
+  .contenedor-tabla > table tbody tr:not(.empty-table) td:first-child,
+  .tabla-reporte > table tbody tr:not(.empty-table) td:first-child {
     border-top: 0;
   }
 
-  #tabla-inventario td::before,
-  #tabla-movimientos td::before {
+  .contenedor-tabla > table tbody tr:not(.empty-table) td::before,
+  .tabla-reporte > table tbody tr:not(.empty-table) td::before {
     color: #46616a;
-    flex: 0 0 40%;
+    content: attr(data-label);
+    flex: 0 0 38%;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .03em;
+    line-height: 1.35;
     text-align: left;
     text-transform: uppercase;
   }
 
-  #tabla-inventario td:nth-child(1)::before { content: 'Material'; }
-  #tabla-inventario td:nth-child(2)::before { content: 'Unidad'; }
-  #tabla-inventario td:nth-child(3)::before { content: 'Existencia'; }
-  #tabla-inventario td:nth-child(4)::before { content: 'Stock mínimo'; }
-  #tabla-inventario td:nth-child(5)::before { content: 'Estado'; }
-
-  #tabla-movimientos td:nth-child(1)::before { content: 'Fecha'; }
-  #tabla-movimientos td:nth-child(2)::before { content: 'Material'; }
-  #tabla-movimientos td:nth-child(3)::before { content: 'Tipo'; }
-  #tabla-movimientos td:nth-child(4)::before { content: 'Usuario'; }
-  #tabla-movimientos td:nth-child(5)::before { content: 'Cantidad'; }
-  #tabla-movimientos td:nth-child(6)::before { content: 'Referencia'; }
-  #tabla-movimientos td:nth-child(7)::before { content: 'Acciones'; }
-
-  #tabla-inventario td strong,
-  #tabla-movimientos td strong {
-    max-width: 60%;
-    overflow-wrap: anywhere;
-    text-align: right;
+  .contenedor-tabla > table tbody tr:not(.empty-table) td > *,
+  .tabla-reporte > table tbody tr:not(.empty-table) td > * {
+    max-width: 62%;
   }
 
-  #tabla-inventario .empty-table,
-  #tabla-movimientos .empty-table {
+  .contenedor-tabla > table tbody tr:not(.empty-table) td:last-child,
+  .tabla-reporte > table tbody tr:not(.empty-table) td:last-child {
+    align-items: center;
+    background: #f8fbfc;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .contenedor-tabla > table tbody tr:not(.empty-table) td:last-child::before,
+  .tabla-reporte > table tbody tr:not(.empty-table) td:last-child::before {
+    margin-right: auto;
+  }
+
+  .contenedor-tabla > table tbody tr:not(.empty-table) td:last-child .boton,
+  .tabla-reporte > table tbody tr:not(.empty-table) td:last-child .boton {
+    max-width: none;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:first-child {
+    align-items: center;
+    background: #f7fafb;
+    justify-content: center;
+    min-height: 74px;
+    padding: 10px;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:first-child::before {
+    display: none;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:first-child > * {
+    max-width: 72px;
+  }
+
+  #tabla-materiales tbody tr:not(.empty-table) td:first-child img {
+    height: 58px !important;
+    width: 58px !important;
+  }
+
+  .contenedor-tabla > table .empty-table,
+  .tabla-reporte > table .empty-table {
     display: table-row;
   }
 
-  #tabla-inventario .empty-table td,
-  #tabla-movimientos .empty-table td {
+  .contenedor-tabla > table .empty-table td,
+  .tabla-reporte > table .empty-table td {
     display: table-cell;
     text-align: center;
   }
 
-  #tabla-inventario .empty-table td::before,
-  #tabla-movimientos .empty-table td::before {
+  .contenedor-tabla > table .empty-table td::before,
+  .tabla-reporte > table .empty-table td::before {
     display: none;
   }
 }

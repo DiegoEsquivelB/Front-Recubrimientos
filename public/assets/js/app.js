@@ -126,6 +126,7 @@ if (typeof document !== 'undefined') {
     applyRememberedLoginState();
     setStandardForms();
     setTableSearches();
+    setupResponsiveTables();
     setCalculator();
     setReportForm();
     setDefaultDate();
@@ -3033,6 +3034,24 @@ function renderEmptyTable(table, message) {
   if (!tbody) return;
   const columnCount = table.querySelectorAll('thead th').length || 1;
   tbody.innerHTML = `<tr class="empty-table"><td colspan="${columnCount}">${message}</td></tr>`;
+}
+
+function updateResponsiveTableLabels(table) {
+  const headers = [...table.querySelectorAll('thead th')].map((header) => header.textContent.trim());
+  table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
+    [...row.children].forEach((cell, index) => {
+      cell.dataset.label = headers[index] || '';
+    });
+  });
+}
+
+function setupResponsiveTables() {
+  document.querySelectorAll('.contenedor-tabla table, .tabla-reporte table').forEach((table) => {
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    updateResponsiveTableLabels(table);
+    new MutationObserver(() => updateResponsiveTableLabels(table)).observe(tbody, { childList: true });
+  });
 }
 
 async function setupProyectoModal() {
