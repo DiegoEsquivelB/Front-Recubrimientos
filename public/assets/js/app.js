@@ -2816,15 +2816,21 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       const colors = isCreating && supportsColorVariants
         ? colorVariations
         : [];
-      const responses = colors.length
-        ? await colors.reduce(async (previous, color) => {
-          await previous;
-          return apiRequest(requestUrl, {
-            method,
-            body: { ...payload, nombre: `${payload.nombre} - ${color.color}`, color: color.color, codigo_color: color.codigo_color }
-          });
-        }, Promise.resolve())
-        : await apiRequest(requestUrl, { method, body: payload });
+      let responses = null;
+      if (colors.length) {
+        for (const color of colors) {
+          try {
+            responses = await apiRequest(requestUrl, {
+              method,
+              body: { ...payload, nombre: `${payload.nombre} - ${color.color}`, color: color.color, codigo_color: color.codigo_color }
+            });
+          } catch (error) {
+            throw new Error(`No se pudo guardar la variación "${color.color}": ${error.message}`);
+          }
+        }
+      } else {
+        responses = await apiRequest(requestUrl, { method, body: payload });
+      }
 
       const successMessage = colors.length
         ? `${colors.length} variaciones de pintura creadas correctamente.`
