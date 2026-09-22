@@ -2631,22 +2631,30 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   const codeInput = form.querySelector('#modalMaterial-codigo');
   const colorVariationsInput = form.querySelector('#modalMaterial-colores');
   const colorVariationsGroup = form.querySelector('[data-color-variations]');
+  const paintingCheckbox = form.querySelector('#modalMaterial-esPintura');
   const colorCodeInput = form.querySelector('#modalMaterial-codigoColor');
   const colorCodeOutput = form.querySelector('#modalMaterial-codigoColorValor');
   const updateLaborFields = () => {
-    const isLabor = normalizeErrorText(categorySelect?.value) === 'mano de obra';
-    const isPaint = normalizeErrorText(categorySelect?.value) === 'pintura';
+    const selectedCategoryName = categorySelect?.selectedOptions[0]?.textContent || categorySelect?.value || '';
+    const normalizedCategory = normalizeErrorText(selectedCategoryName);
+    const isLabor = normalizedCategory === 'mano de obra';
+    const supportsColorVariants = Boolean(paintingCheckbox?.checked) && !isLabor;
     const laborPriceLabel = form.querySelector('label[for="modalMaterial-costo"]');
     if (laborPriceLabel) laborPriceLabel.textContent = isLabor ? 'Precio por m² (Q)' : 'Costo unitario (Q)';
-    if (colorVariationsGroup) colorVariationsGroup.hidden = !isPaint;
+    if (colorVariationsGroup) colorVariationsGroup.hidden = !supportsColorVariants;
     if (colorVariationsGroup && colorVariationsInput) {
       colorVariationsGroup.querySelector('label').textContent = material ? 'Color' : 'Variaciones por color';
       colorVariationsInput.placeholder = material ? 'Ej. Blanco' : 'Ej. Blanco, Rojo ladrillo, Gris';
     }
     const colorCodeGroup = form.querySelector('[data-color-code]');
-    if (colorCodeGroup) colorCodeGroup.hidden = !isPaint;
+    if (colorCodeGroup) colorCodeGroup.hidden = !supportsColorVariants;
+    if (paintingCheckbox) {
+      paintingCheckbox.disabled = isLabor;
+      if (isLabor) paintingCheckbox.checked = false;
+    }
     setupMaterialInitialInventory(form, !material && !isLabor);
   };
+  paintingCheckbox?.addEventListener('change', updateLaborFields);
   colorCodeInput?.addEventListener('input', () => {
     if (colorCodeOutput) colorCodeOutput.textContent = formatColorCode(colorCodeInput.value);
   });
@@ -2697,6 +2705,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     form.querySelector('#modalMaterial-costo').value = material.costo ?? '';
     form.querySelector('#modalMaterial-minimo').value = material.stock_minimo ?? material.stockMinimo ?? '';
     if (colorVariationsInput) colorVariationsInput.value = material.color || '';
+    if (paintingCheckbox) paintingCheckbox.checked = Boolean(material.color || material.codigo_color);
     if (colorCodeInput) colorCodeInput.value = material.codigo_color || '#ffffff';
     if (colorCodeOutput) colorCodeOutput.textContent = formatColorCode(colorCodeInput?.value);
     setRichTextValue('modalMaterial-descripcion', material.descripcion || '');
@@ -2761,8 +2770,10 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       const method = isCreating ? 'POST' : 'PUT';
 
       const categoryName = normalizeErrorText(payload.categoria || payload.tipo || '');
-      if (categoryName !== 'pintura') delete payload.codigo_color;
-      const colors = isCreating && categoryName === 'pintura'
+      const supportsColorVariants = Boolean(form.querySelector('#modalMaterial-esPintura')?.checked)
+        && categoryName !== 'mano de obra';
+      if (!supportsColorVariants) delete payload.codigo_color;
+      const colors = isCreating && supportsColorVariants
         ? [...new Set(colorValue.split(',').map((color) => color.trim()).filter(Boolean))]
         : [];
       const responses = colors.length

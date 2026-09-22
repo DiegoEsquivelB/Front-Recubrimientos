@@ -91,7 +91,7 @@ En el detalle de proyectos aparece el botón `Detalle lote` cuando existe inform
 
 El catálogo de materiales incluye el botón `Ver detalle`, que abre una vista de solo lectura con la imagen, código, categoría, unidad, rendimiento, costo, stock mínimo y descripción del material. La vista se organiza en dos columnas en PC y en una columna en dispositivos móviles.
 
-Al crear materiales de categoría `Pintura`, el campo `Variaciones por color` permite escribir varios colores separados por coma. El sistema crea una variación independiente por color, con código, inventario y nombre propios, reutilizando la descripción, imagen, unidad, rendimiento y precios comunes.
+Al crear un material, el checkbox `Es pintura y permite variaciones por color` habilita los campos de color. Allí se pueden escribir varios colores separados por coma. El sistema crea una variación independiente por color, con código, inventario y nombre propios, reutilizando la descripción, imagen, unidad, rendimiento y precios comunes, sin depender del nombre de la categoría.
 
 Los campos de descripción de proyectos, observación de movimientos y descripción de materiales utilizan un editor enriquecido con formato básico, listas, enlaces y limpieza de formato. Las tablas de inventario y movimientos se convierten en tarjetas etiquetadas en pantallas pequeñas para mantener sus datos legibles.
 

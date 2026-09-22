@@ -1546,6 +1546,23 @@ boton {
   display: none;
 }
 
+.opcion-checkbox {
+  align-items: center;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 9px;
+}
+
+.opcion-checkbox input {
+  accent-color: var(--primary);
+  height: 17px;
+  margin: 0;
+  width: 17px;
+}
+
 .grupo-formulario--full {
   grid-column: 1 / -1;
 }
