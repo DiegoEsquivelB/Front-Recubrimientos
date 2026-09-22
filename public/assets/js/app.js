@@ -2633,8 +2633,31 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   const colorVariationsInput = form.querySelector('#modalMaterial-colores');
   const colorVariationsGroup = form.querySelector('[data-color-variations]');
   const paintingCheckbox = form.querySelector('#modalMaterial-esPintura');
-  const colorCodeInput = form.querySelector('#modalMaterial-codigoColor');
-  const colorCodeOutput = form.querySelector('#modalMaterial-codigoColorValor');
+  const colorCodeGroup = form.querySelector('[data-color-code]');
+  const colorVariationList = form.querySelector('[data-color-variation-list]');
+
+  const getVariationColors = () => [...new Set((colorVariationsInput?.value || '')
+    .split(',')
+    .map((color) => color.trim())
+    .filter(Boolean))];
+
+  const renderColorVariationEditors = () => {
+    if (!colorVariationList) return;
+    const previousCodes = new Map([...colorVariationList.querySelectorAll('[data-variation-color]')]
+      .map((input) => [input.dataset.variationColor, input.value]));
+    const colors = getVariationColors();
+    colorVariationList.innerHTML = colors.map((color, index) => {
+      const value = previousCodes.get(color) || '#ffffff';
+      return `<div class="fila-codigo-color" data-color-row>
+        <strong>${escapeHtml(color)}</strong>
+        <input type="color" data-variation-color="${escapeAttribute(color)}" value="${value}" aria-label="Código de color para ${escapeAttribute(color)}">
+        <output data-variation-output>${formatColorCode(value)}</output>
+      </div>`;
+    }).join('');
+  };
+
+  const getColorVariations = () => [...(colorVariationList?.querySelectorAll('[data-variation-color]') || [])]
+    .map((input) => ({ color: input.dataset.variationColor, codigo_color: input.value }));
   const updateLaborFields = () => {
     const selectedCategoryName = categorySelect?.selectedOptions[0]?.textContent || categorySelect?.value || '';
     const normalizedCategory = normalizeErrorText(selectedCategoryName);
@@ -2647,7 +2670,6 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       colorVariationsGroup.querySelector('label').textContent = material ? 'Color' : 'Variaciones por color';
       colorVariationsInput.placeholder = material ? 'Ej. Blanco' : 'Ej. Blanco, Rojo ladrillo, Gris';
     }
-    const colorCodeGroup = form.querySelector('[data-color-code]');
     if (colorCodeGroup) colorCodeGroup.hidden = !supportsColorVariants;
     if (paintingCheckbox) {
       paintingCheckbox.disabled = isLabor;
@@ -2656,8 +2678,11 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     setupMaterialInitialInventory(form, !material && !isLabor);
   };
   paintingCheckbox?.addEventListener('change', updateLaborFields);
-  colorCodeInput?.addEventListener('input', () => {
-    if (colorCodeOutput) colorCodeOutput.textContent = formatColorCode(colorCodeInput.value);
+  colorVariationsInput?.addEventListener('input', renderColorVariationEditors);
+  colorVariationList?.addEventListener('input', (event) => {
+    const input = event.target.closest('[data-variation-color]');
+    const output = input?.parentElement.querySelector('[data-variation-output]');
+    if (input && output) output.textContent = formatColorCode(input.value);
   });
   categorySelect?.addEventListener('change', updateLaborFields);
   updateLaborFields();
@@ -2708,8 +2733,13 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     form.querySelector('#modalMaterial-minimo').value = material.stock_minimo ?? material.stockMinimo ?? '';
     if (colorVariationsInput) colorVariationsInput.value = material.color || '';
     if (paintingCheckbox) paintingCheckbox.checked = Boolean(material.color || material.codigo_color);
-    if (colorCodeInput) colorCodeInput.value = material.codigo_color || '#ffffff';
-    if (colorCodeOutput) colorCodeOutput.textContent = formatColorCode(colorCodeInput?.value);
+    renderColorVariationEditors();
+    const variationColorInput = colorVariationList?.querySelector('[data-variation-color]');
+    if (variationColorInput) {
+      variationColorInput.value = material.codigo_color || '#ffffff';
+      const output = variationColorInput.parentElement.querySelector('[data-variation-output]');
+      if (output) output.textContent = formatColorCode(variationColorInput.value);
+    }
     setRichTextValue('modalMaterial-descripcion', material.descripcion || '');
     if (imageValue) imageValue.value = material.imagen || '';
     setImagePreview(material.imagen || '');
@@ -2721,6 +2751,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   }
 
   updateLaborFields();
+  renderColorVariationEditors();
 
   form.dataset.endpoint = endpoint;
 
@@ -2752,7 +2783,9 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       }
 
       const colorValue = colorVariationsInput?.value.trim() || '';
+      const colorVariations = getColorVariations();
       delete payload.colores_variaciones;
+      delete payload.codigo_color;
       payload.codigo = (form.querySelector('#modalMaterial-codigo')?.value || '').trim();
 
       const isCreating = !materialId;
@@ -2765,7 +2798,9 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       if (!isCreating) {
         delete payload.stock_inicial;
         delete payload.referencia_inventario;
-        payload.color = colorValue || null;
+        const variation = colorVariations[0];
+        payload.color = variation?.color || colorValue || null;
+        payload.codigo_color = variation?.codigo_color || null;
       }
 
       const requestUrl = isCreating ? endpoint : `${endpoint}/${materialId}`;
@@ -2774,16 +2809,19 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
       const categoryName = normalizeErrorText(payload.categoria || payload.tipo || '');
       const supportsColorVariants = Boolean(form.querySelector('#modalMaterial-esPintura')?.checked)
         && categoryName !== 'mano de obra';
-      if (!supportsColorVariants) delete payload.codigo_color;
+      if (!supportsColorVariants) {
+        delete payload.color;
+        delete payload.codigo_color;
+      }
       const colors = isCreating && supportsColorVariants
-        ? [...new Set(colorValue.split(',').map((color) => color.trim()).filter(Boolean))]
+        ? colorVariations
         : [];
       const responses = colors.length
         ? await colors.reduce(async (previous, color) => {
           await previous;
           return apiRequest(requestUrl, {
             method,
-            body: { ...payload, nombre: `${payload.nombre} - ${color}`, color }
+            body: { ...payload, nombre: `${payload.nombre} - ${color.color}`, color: color.color, codigo_color: color.codigo_color }
           });
         }, Promise.resolve())
         : await apiRequest(requestUrl, { method, body: payload });
