@@ -2134,7 +2134,7 @@ function bindMaterialMobileMenus(table) {
   });
 }
 
-function showMaterialDetail(material) {
+async function showMaterialDetail(material) {
   const modal = document.getElementById('modalDetalleMaterial');
   const content = document.getElementById('detalleMaterialContent');
   if (!modal || !content || typeof bootstrap === 'undefined') return;
@@ -2145,6 +2145,21 @@ function showMaterialDetail(material) {
     : '<div class="detalle-material__image detalle-material__image--empty">Sin imagen</div>';
   const rendimiento = material.rendimiento ?? material.rendimiento_m2_gal ?? '—';
   const costo = material.costo ?? material.precio_unitario;
+  let variations = [material];
+  try {
+    const related = await apiRequest(`materiales/${material.id_material ?? material.id}/variaciones`);
+    if (Array.isArray(related) && related.length) variations = related;
+  } catch (_error) {
+    // El detalle principal sigue disponible aunque no se carguen las variaciones.
+  }
+  const colorSwatches = variations
+    .filter((variation) => variation.codigo_color)
+    .map((variation) => `
+      <div class="detalle-material__swatch" title="${escapeAttribute(variation.color || 'Color')}" aria-label="${escapeAttribute(variation.color || 'Color')}">
+        <i style="background-color: ${escapeAttribute(variation.codigo_color)}"></i>
+        <small>${escapeHtml(variation.color || 'Sin nombre')}</small>
+      </div>
+    `).join('');
 
   content.innerHTML = `
     <div class="detalle-material__visual">${imagen}</div>
@@ -2167,6 +2182,7 @@ function showMaterialDetail(material) {
         <h4>Descripción</h4>
         <div class="rich-text-content">${sanitizeRichText(material.descripcion || 'Sin descripción registrada.')}</div>
       </div>
+      ${colorSwatches ? `<div class="detalle-material__colores"><h4>Colores disponibles</h4><div class="detalle-material__swatches">${colorSwatches}</div></div>` : ''}
     </div>
   `;
 
@@ -2818,16 +2834,10 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
         : [];
       let responses = null;
       if (colors.length) {
-        for (const color of colors) {
-          try {
-            responses = await apiRequest(requestUrl, {
-              method,
-              body: { ...payload, nombre: `${payload.nombre} - ${color.color}`, color: color.color, codigo_color: color.codigo_color }
-            });
-          } catch (error) {
-            throw new Error(`No se pudo guardar la variación "${color.color}": ${error.message}`);
-          }
-        }
+        responses = await apiRequest(requestUrl, {
+          method,
+          body: { ...payload, variaciones: colors }
+        });
       } else {
         responses = await apiRequest(requestUrl, { method, body: payload });
       }

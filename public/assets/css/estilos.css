@@ -1462,6 +1462,48 @@ boton {
   line-height: 1.55;
 }
 
+.detalle-material__colores {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.detalle-material__colores h4 {
+  color: var(--ink);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.detalle-material__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.detalle-material__swatch {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 66px;
+  text-align: center;
+}
+
+.detalle-material__swatch i {
+  border: 1px solid #d5dfe3;
+  border-radius: 50%;
+  display: block;
+  height: 40px;
+  width: 40px;
+}
+
+.detalle-material__swatch small {
+  color: var(--texto-suave);
+  font-size: 9px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .selector-color {
   align-items: center;
   display: flex;
