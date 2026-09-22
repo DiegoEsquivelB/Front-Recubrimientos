@@ -1397,7 +1397,12 @@ function cargarOpcionesMaterialesProyecto(select) {
       });
 
       const laborMaterials = materiales.filter((material) => normalizeErrorText(material.categoria || material.tipo) === 'mano de obra');
-      const regularMaterials = materiales.filter((material) => normalizeErrorText(material.categoria || material.tipo) !== 'mano de obra');
+      const regularMaterials = materiales.filter((material) => {
+        const isLabor = normalizeErrorText(material.categoria || material.tipo) === 'mano de obra';
+        const id = material.id_material ?? material.id ?? '';
+        const stockDisponible = stockPorMaterial[String(id)] ?? 0;
+        return !isLabor && stockDisponible > 0;
+      });
       select.innerHTML = '<option value="">Seleccione un material</option>' + regularMaterials.map((material) => {
         const id = material.id_material ?? material.id ?? '';
         const name = material.nombre || 'Material sin nombre';
@@ -1436,7 +1441,7 @@ async function bindProjectMaterialButtons(form) {
     const materialId = Number(select.value || 0);
     const cantidad = Number(cantidadInput.value || 0);
 
-    if (!materialId || !Number.isFinite(cantidad) || cantidad <= 0) {
+    if (!materialId || !Number.isInteger(cantidad) || cantidad <= 0) {
       showToast('Seleccione un material y una cantidad válida.', 'error');
       return;
     }
@@ -2145,15 +2150,15 @@ async function showMaterialDetail(material) {
     : '<div class="detalle-material__image detalle-material__image--empty">Sin imagen</div>';
   const rendimiento = material.rendimiento ?? material.rendimiento_m2_gal ?? '—';
   const costo = material.costo ?? material.precio_unitario;
-  let variations = [material];
+  let variations = [];
   try {
     const related = await apiRequest(`materiales/${material.id_material ?? material.id}/variaciones`);
-    if (Array.isArray(related) && related.length) variations = related;
+    if (Array.isArray(related)) variations = related;
   } catch (_error) {
     // El detalle principal sigue disponible aunque no se carguen las variaciones.
   }
   const colorSwatches = variations
-    .filter((variation) => variation.codigo_color)
+    .filter((variation) => variation.codigo_color && Number(variation.stock_actual) > 0)
     .map((variation) => `
       <div class="detalle-material__swatch" title="${escapeAttribute(variation.color || 'Color')}" aria-label="${escapeAttribute(variation.color || 'Color')}">
         <i style="background-color: ${escapeAttribute(variation.codigo_color)}"></i>
