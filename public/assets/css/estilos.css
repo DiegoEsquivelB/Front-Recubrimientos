@@ -1347,6 +1347,121 @@ boton {
   font-weight: 800;
 }
 
+.modal-detalle-material .modal-dialog {
+  max-width: 820px;
+}
+
+.modal-detalle-material .modal-content {
+  border: 1px solid #dbe7ee;
+  border-radius: 16px;
+  box-shadow: 0 20px 55px rgba(25, 59, 80, .2);
+  overflow: hidden;
+}
+
+.modal-detalle-material .modal-body {
+  padding: 22px;
+}
+
+.detalle-material {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(260px, .95fr) minmax(0, 1.05fr);
+}
+
+.detalle-material__visual {
+  align-items: center;
+  background: #f5f8fa;
+  border: 1px solid #dce7ec;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  min-height: 310px;
+  overflow: hidden;
+}
+
+.detalle-material__image {
+  height: 100%;
+  max-height: 350px;
+  max-width: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.detalle-material__image--empty {
+  color: var(--texto-suave);
+  font-size: 14px;
+  height: auto;
+  padding: 30px;
+  text-align: center;
+}
+
+.detalle-material__info {
+  min-width: 0;
+}
+
+.detalle-material__eyebrow {
+  color: var(--texto-suave);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.detalle-material__info h2 {
+  color: var(--ink);
+  font-size: clamp(20px, 3vw, 28px);
+  margin: 3px 0 6px;
+  overflow-wrap: anywhere;
+}
+
+.detalle-material__info h3 {
+  color: var(--ink);
+  font-size: 19px;
+  line-height: 1.25;
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.detalle-material__datos {
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 18px 0;
+  padding: 14px 0;
+}
+
+.detalle-material__datos div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.detalle-material__datos span,
+.detalle-material__descripcion h4 {
+  color: var(--texto-suave);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.detalle-material__datos strong {
+  color: var(--ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.detalle-material__descripcion h4 {
+  margin: 0 0 6px;
+}
+
+.detalle-material__descripcion .rich-text-content {
+  color: var(--texto-suave);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .modal-eliminar-material__warning {
   color: var(--danger);
   font-weight: 700;
@@ -1420,6 +1535,44 @@ boton {
 .grupo-formulario textarea {
   min-height: auto;
   resize: vertical;
+}
+
+.editor-texto {
+  background: #fff;
+  border: 1px solid #cedce0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.editor-texto .ql-toolbar.ql-snow {
+  background: #f7fafb;
+  border: 0;
+  border-bottom: 1px solid #cedce0;
+  padding: 7px 8px;
+}
+
+.editor-texto .ql-container.ql-snow {
+  border: 0;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.editor-texto .ql-editor {
+  min-height: 96px;
+  padding: 10px 12px;
+}
+
+.editor-texto:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(22, 126, 143, 0.12);
+}
+
+.rich-text-content p {
+  margin: 0 0 0.35rem;
+}
+
+.rich-text-content p:last-child {
+  margin-bottom: 0;
 }
 
 .materiales-proyecto-control {
@@ -1631,6 +1784,101 @@ td {
   display: block;
   font-size: 11px;
   margin-top: 3px;
+}
+
+@media (max-width: 640px) {
+  #tabla-inventario,
+  #tabla-movimientos {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  #tabla-inventario thead,
+  #tabla-movimientos thead {
+    display: none;
+  }
+
+  #tabla-inventario tbody,
+  #tabla-movimientos tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  #tabla-inventario tr,
+  #tabla-movimientos tr {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    display: block;
+    overflow: hidden;
+  }
+
+  #tabla-inventario td,
+  #tabla-movimientos td {
+    align-items: center;
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    min-width: 0;
+    padding: 9px 12px;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  #tabla-inventario td:first-child,
+  #tabla-movimientos td:first-child {
+    border-top: 0;
+  }
+
+  #tabla-inventario td::before,
+  #tabla-movimientos td::before {
+    color: #46616a;
+    flex: 0 0 40%;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  #tabla-inventario td:nth-child(1)::before { content: 'Material'; }
+  #tabla-inventario td:nth-child(2)::before { content: 'Unidad'; }
+  #tabla-inventario td:nth-child(3)::before { content: 'Existencia'; }
+  #tabla-inventario td:nth-child(4)::before { content: 'Stock mínimo'; }
+  #tabla-inventario td:nth-child(5)::before { content: 'Estado'; }
+
+  #tabla-movimientos td:nth-child(1)::before { content: 'Fecha'; }
+  #tabla-movimientos td:nth-child(2)::before { content: 'Material'; }
+  #tabla-movimientos td:nth-child(3)::before { content: 'Tipo'; }
+  #tabla-movimientos td:nth-child(4)::before { content: 'Usuario'; }
+  #tabla-movimientos td:nth-child(5)::before { content: 'Cantidad'; }
+  #tabla-movimientos td:nth-child(6)::before { content: 'Referencia'; }
+  #tabla-movimientos td:nth-child(7)::before { content: 'Acciones'; }
+
+  #tabla-inventario td strong,
+  #tabla-movimientos td strong {
+    max-width: 60%;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+
+  #tabla-inventario .empty-table,
+  #tabla-movimientos .empty-table {
+    display: table-row;
+  }
+
+  #tabla-inventario .empty-table td,
+  #tabla-movimientos .empty-table td {
+    display: table-cell;
+    text-align: center;
+  }
+
+  #tabla-inventario .empty-table td::before,
+  #tabla-movimientos .empty-table td::before {
+    display: none;
+  }
 }
 
 /* =====================================================
@@ -2479,6 +2727,38 @@ td {
 }
 
 @media (max-width: 560px) {
+  .modal-detalle-material .modal-body {
+    padding: 14px;
+  }
+
+  .detalle-material {
+    gap: 18px;
+    grid-template-columns: 1fr;
+  }
+
+  .detalle-material__visual {
+    min-height: 220px;
+  }
+
+  .detalle-material__image {
+    max-height: 245px;
+  }
+
+  .detalle-material__datos {
+    gap: 12px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .editor-texto .ql-toolbar.ql-snow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+
+  .editor-texto .ql-formats {
+    margin-right: 4px;
+  }
+
   .cuadricula-metricas,
   .cuadricula-metricas--three {
     grid-template-columns: 1fr;

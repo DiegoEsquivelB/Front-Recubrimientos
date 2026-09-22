@@ -20,6 +20,81 @@ const mostrarArchivados = {
   proyectos: false,
   usuarios: false
 };
+const richTextEditors = new Map();
+
+function initializeRichTextEditors() {
+  if (typeof Quill === 'undefined') return;
+
+  document.querySelectorAll('[data-rich-text-editor]').forEach((container) => {
+    const targetId = container.dataset.richTextEditor;
+    const textarea = document.getElementById(targetId);
+    if (!textarea || richTextEditors.has(targetId)) return;
+
+    const editor = new Quill(container, {
+      theme: 'snow',
+      placeholder: textarea.placeholder,
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['link'],
+          ['clean']
+        ]
+      }
+    });
+
+    textarea.hidden = true;
+    editor.on('text-change', () => {
+      textarea.value = editor.root.innerHTML === '<p><br></p>' ? '' : editor.root.innerHTML;
+    });
+    richTextEditors.set(targetId, { editor, textarea });
+    setRichTextValue(targetId, textarea.value);
+  });
+}
+
+function setRichTextValue(targetId, value = '') {
+  const instance = richTextEditors.get(targetId);
+  const textarea = document.getElementById(targetId);
+  if (textarea) textarea.value = value || '';
+  if (!instance) return;
+
+  if (value) {
+    instance.editor.clipboard.dangerouslyPasteHTML(value);
+  } else {
+    instance.editor.setText('');
+  }
+  instance.textarea.value = value || '';
+}
+
+function syncRichTextEditors() {
+  richTextEditors.forEach(({ editor, textarea }) => {
+    textarea.value = editor.root.innerHTML === '<p><br></p>' ? '' : editor.root.innerHTML;
+  });
+}
+
+function sanitizeRichText(value) {
+  if (!value) return '';
+  const template = document.createElement('template');
+  template.innerHTML = String(value);
+  const allowedTags = new Set(['A', 'BR', 'EM', 'LI', 'OL', 'P', 'STRONG', 'U', 'UL']);
+
+  template.content.querySelectorAll('*').forEach((element) => {
+    if (!allowedTags.has(element.tagName)) {
+      element.replaceWith(...element.childNodes);
+      return;
+    }
+    [...element.attributes].forEach((attribute) => {
+      if (element.tagName === 'A' && attribute.name === 'href' && /^https?:\/\//i.test(attribute.value)) return;
+      element.removeAttribute(attribute.name);
+    });
+    if (element.tagName === 'A') {
+      element.target = '_blank';
+      element.rel = 'noopener noreferrer';
+    }
+  });
+
+  return template.innerHTML;
+}
 
 function getLoginErrorMessage(error) {
   const rawMessage = error && typeof error.message === 'string' ? error.message : '';
@@ -44,6 +119,7 @@ if (typeof document !== 'undefined') {
     setCurrentDate();
     setActiveNavigation();
     applyRoleAccess();
+    initializeRichTextEditors();
     setSidebarControls();
     setPasswordToggle();
     applyRememberedLoginState();
@@ -1676,6 +1752,7 @@ async function loadCrudLists() {
             <td>${costo}</td>
             <td>${stockMinimo}</td>
             <td>
+              <button class="boton boton-icono" type="button" data-view-material data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
               ${mostrarMaterialesArchivados
                 ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="materiales" title="Desarchivar material">Desarchivar</button>`
                 : `${isLabor
@@ -1690,6 +1767,7 @@ async function loadCrudLists() {
       }).join('');
       bindEditButtons(table);
       bindLaborEditButtons(table);
+      bindViewMaterialButtons(table);
       bindDeleteButtons(table);
       bindArchiveButtons(table);
       bindUnarchiveButtons(table);
@@ -1995,6 +2073,51 @@ function bindViewFichaButtons(table) {
   });
 }
 
+function bindViewMaterialButtons(table) {
+  table.querySelectorAll('[data-view-material]').forEach((button) => {
+    button.onclick = () => {
+      const material = parseRecordData(button.dataset.record);
+      if (material) showMaterialDetail(material);
+    };
+  });
+}
+
+function showMaterialDetail(material) {
+  const modal = document.getElementById('modalDetalleMaterial');
+  const content = document.getElementById('detalleMaterialContent');
+  if (!modal || !content || typeof bootstrap === 'undefined') return;
+
+  const nombre = material.nombre || 'Material sin nombre';
+  const imagen = material.imagen
+    ? `<img class="detalle-material__image" src="${escapeAttribute(material.imagen)}" alt="${escapeAttribute(nombre)}">`
+    : '<div class="detalle-material__image detalle-material__image--empty">Sin imagen</div>';
+  const rendimiento = material.rendimiento ?? material.rendimiento_m2_gal ?? '—';
+  const costo = material.costo ?? material.precio_unitario;
+
+  content.innerHTML = `
+    <div class="detalle-material__visual">${imagen}</div>
+    <div class="detalle-material__info">
+      <div class="detalle-material__eyebrow">Código</div>
+      <h2>${escapeHtml(material.codigo || 'Sin código')}</h2>
+      <h3>${escapeHtml(nombre)}</h3>
+      <span class="badge badge--success">Material activo</span>
+      <div class="detalle-material__datos">
+        <div><span>Categoría</span><strong>${escapeHtml(material.categoria || material.tipo || '—')}</strong></div>
+        <div><span>Unidad</span><strong>${escapeHtml(material.unidad || material.unidad_medida || '—')}</strong></div>
+        <div><span>Rendimiento</span><strong>${escapeHtml(String(rendimiento))} m²</strong></div>
+        <div><span>Costo unitario</span><strong>${costo === undefined || costo === null ? '—' : `Q ${Number(costo).toFixed(2)}`}</strong></div>
+        <div><span>Stock mínimo</span><strong>${escapeHtml(String(material.stock_minimo ?? '0'))}</strong></div>
+      </div>
+      <div class="detalle-material__descripcion">
+        <h4>Descripción</h4>
+        <div class="rich-text-content">${sanitizeRichText(material.descripcion || 'Sin descripción registrada.')}</div>
+      </div>
+    </div>
+  `;
+
+  bootstrap.Modal.getOrCreateInstance(modal).show();
+}
+
 function bindViewProyectoButtons(table) {
   table.querySelectorAll('[data-view-proyecto-id]').forEach((boton) => {
     boton.onclick = () => {
@@ -2173,7 +2296,7 @@ async function showProyectoDetalle(proyecto) {
       ${materialesHtml}
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Descripción:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(descripcion)}</div>
+        <div class="valor-ficha-cliente rich-text-content">${sanitizeRichText(descripcion)}</div>
       </div>
     </div>
   `;
@@ -2410,6 +2533,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   if (!modal || !form) return;
 
   form.reset();
+  setRichTextValue('modalMaterial-descripcion');
   form.querySelector('input[name="id"]').value = id || '';
   clearFormErrors();
 
@@ -2503,7 +2627,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     form.querySelector('#modalMaterial-rendimiento').value = material.rendimiento ?? '';
     form.querySelector('#modalMaterial-costo').value = material.costo ?? '';
     form.querySelector('#modalMaterial-minimo').value = material.stock_minimo ?? material.stockMinimo ?? '';
-    form.querySelector('#modalMaterial-descripcion').value = material.descripcion || '';
+    setRichTextValue('modalMaterial-descripcion', material.descripcion || '');
     if (imageValue) imageValue.value = material.imagen || '';
     setImagePreview(material.imagen || '');
   } else if (categorySelect) {
@@ -2525,6 +2649,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
         return;
       }
 
+      syncRichTextEditors();
       const materialId = form.querySelector('input[name="id"]').value;
       const payload = {};
       const formData = new FormData(form);
@@ -2924,6 +3049,7 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
   if (!modal || !form || typeof bootstrap === 'undefined') return;
 
   form.reset();
+  setRichTextValue('modalProyecto-descripcion');
   form.querySelector('input[name="id"]').value = id || '';
   form.dataset.projectUserId = proyecto ? (proyecto.id_usuario ?? proyecto.usuario_id ?? proyecto.idUsuario ?? proyecto.usuarioId ?? '') : '';
   clearFormErrors();
@@ -2988,7 +3114,7 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
     if (presupuestoInput) {
       presupuestoInput.value = proyecto.presupuesto ?? proyecto.costo_estimado ?? '';
     }
-    form.querySelector('textarea[name="descripcion"]').value = proyecto.descripcion ?? '';
+    setRichTextValue('modalProyecto-descripcion', proyecto.descripcion ?? '');
   } else {
     form.querySelector('select[name="estado"]').value = 'Pendiente';
   }
@@ -3002,6 +3128,7 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
         return;
       }
 
+      syncRichTextEditors();
       const projectId = form.querySelector('input[name="id"]').value;
       const payload = normalizeProjectPayload(objectFromForm(form));
       const materialesSeleccionados = obtenerMaterialesProyecto(form);
@@ -3272,6 +3399,7 @@ async function openInventoryMovementModal() {
   if (!modal || !form || typeof bootstrap === 'undefined') return;
 
   form.reset();
+  setRichTextValue('movimiento-observacion');
   clearFormErrors();
   setDefaultDate();
   await loadInventoryMaterials();
@@ -3304,6 +3432,7 @@ async function saveInventoryMovement() {
       return;
     }
 
+    syncRichTextEditors();
     const payload = objectFromForm(form);
     /* Remover el nombre del usuario, solo enviar el id */
     delete payload.usuario_nombre;
@@ -3321,6 +3450,7 @@ async function saveInventoryMovement() {
     }
 
     form.reset();
+    setRichTextValue('movimiento-observacion');
     setDefaultDate();
     await loadCrudLists();
     await loadInventoryMaterials();
@@ -3558,7 +3688,7 @@ function showMovementDetail(movement) {
       </div>
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Observación:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(movement.notas || movement.observacion || '—')}</div>
+        <div class="valor-ficha-cliente rich-text-content">${sanitizeRichText(movement.notas || movement.observacion || '—')}</div>
       </div>
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Registrado:</label>

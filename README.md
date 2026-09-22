@@ -23,11 +23,12 @@ Frontend web del sistema de gestión de recubrimientos arquitectónicos.
 El frontend utiliza HTML, CSS y JavaScript sin un framework adicional:
 
 - `Bootstrap 5.3.3` (CDN): modal de generación de reportes y componentes de interfaz.
+- `Quill 2.0.3` (CDN): editor enriquecido para descripciones y observaciones.
 - `ExcelJS 4.4.0` (CDN): creación de archivos `.xlsx` con tablas estructuradas, estilos y filtros.
 - `jsPDF 2.5.1` (CDN): generación de archivos PDF desde el navegador.
 - `jsPDF-AutoTable 3.8.2` (CDN): renderizado de los datos del reporte como tabla dentro del PDF.
 
-Las librerías se cargan desde `jsdelivr.net` en [reportes.html](modulos/reportes.html). Se requiere conexión a internet para cargar Bootstrap, ExcelJS y jsPDF.
+Las librerías se cargan desde `jsdelivr.net` en los módulos que las utilizan. Se requiere conexión a internet para cargar Bootstrap, Quill, ExcelJS y jsPDF.
 
 ## Estructura
 
@@ -87,6 +88,10 @@ El catálogo separa los materiales en las pestañas `Activos` y `Archivados`. De
 En Inventario, las entradas permiten indicar un `costo_unitario`. Un mismo material puede recibir varias entradas con costos diferentes. El sistema aplica PEPS automáticamente en las salidas y en el consumo de materiales de proyectos, por lo que siempre descuenta primero los lotes más antiguos disponibles.
 
 En el detalle de proyectos aparece el botón `Detalle lote` cuando existe información PEPS. Ese modal muestra los lotes utilizados, la cantidad tomada y el costo unitario aplicado.
+
+El catálogo de materiales incluye el botón `Ver detalle`, que abre una vista de solo lectura con la imagen, código, categoría, unidad, rendimiento, costo, stock mínimo y descripción del material. La vista se organiza en dos columnas en PC y en una columna en dispositivos móviles.
+
+Los campos de descripción de proyectos, observación de movimientos y descripción de materiales utilizan un editor enriquecido con formato básico, listas, enlaces y limpieza de formato. Las tablas de inventario y movimientos se convierten en tarjetas etiquetadas en pantallas pequeñas para mantener sus datos legibles.
 
 ## Conexión con la API
 
