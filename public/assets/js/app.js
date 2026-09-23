@@ -2478,7 +2478,7 @@ function showPepsDetailModal(detail) {
   modal.querySelector('.modal-peps-detalle__contenido').textContent = detail;
   modal.addEventListener('hidden.bs.modal', () => modal.remove(), { once: true });
   document.body.appendChild(modal);
-  new bootstrap.Modal(modal).show();
+  bootstrap.Modal.getOrCreateInstance(modal).show();
 }
 
 function showClienteFicha(cliente) {
@@ -2560,6 +2560,10 @@ function setupLaborModal() {
   const saveButton = document.getElementById('btnGuardarManoObra');
   if (!button || !modal || !form || !saveButton || typeof bootstrap === 'undefined') return;
 
+  modal.querySelectorAll('[data-mano-obra-tab]').forEach((tab) => {
+    tab.addEventListener('click', () => setLaborModalView(tab.dataset.manoObraTab));
+  });
+
   button.addEventListener('click', () => {
     openLaborModal();
   });
@@ -2598,6 +2602,17 @@ function setupLaborModal() {
   };
 }
 
+function setLaborModalView(view = 'nuevo') {
+  const modal = document.getElementById('modalAgregarManoObra');
+  if (!modal) return;
+  modal.dataset.manoObraView = view;
+  modal.querySelectorAll('[data-mano-obra-tab]').forEach((tab) => {
+    const isActive = tab.dataset.manoObraTab === view;
+    tab.classList.toggle('activa', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+}
+
 function openLaborModal(material = null, id = '') {
   const modal = document.getElementById('modalAgregarManoObra');
   const form = document.getElementById('formAgregarManoObra');
@@ -2606,6 +2621,7 @@ function openLaborModal(material = null, id = '') {
 
   form.reset();
   form.dataset.editId = id || '';
+  setLaborModalView('nuevo');
   clearFormErrors();
   if (title) title.textContent = material ? 'Editar tipo de mano de obra' : 'Nuevo tipo de mano de obra';
   if (material) {
@@ -2614,7 +2630,7 @@ function openLaborModal(material = null, id = '') {
     form.querySelector('[name="precio_venta"]').value = material.precio_venta ?? material.costo ?? material.precio_unitario ?? '';
     form.querySelector('[name="descripcion"]').value = material.descripcion || '';
   }
-  new bootstrap.Modal(modal).show();
+  bootstrap.Modal.getOrCreateInstance(modal).show();
 }
 
 function bindLaborEditButtons(table) {

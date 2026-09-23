@@ -414,32 +414,20 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
           </div>
           <div class="modal-body">
-            <div class="encabezado-panel">
-              <div>
-                <h2>Tipos registrados</h2>
-                <p>Edite o elimine un tipo existente, o use el formulario para agregar uno nuevo.</p>
-              </div>
+            <div class="mano-obra-tabs" role="tablist" aria-label="Gestión de mano de obra">
+              <button type="button" class="mano-obra-tab activa" data-mano-obra-tab="nuevo" role="tab" aria-selected="true">Nuevo</button>
+              <button type="button" class="mano-obra-tab" data-mano-obra-tab="registrados" role="tab" aria-selected="false">Registrados</button>
             </div>
-            <div class="contenedor-tabla">
-              <table id="tabla-mano-obra-modal">
-                <thead>
-                  <tr>
-                    <th>Código</th>
-                    <th>Tipo de trabajo</th>
-                    <th>Costo empresa</th>
-                    <th>Costo cliente</th>
-                    <th>Descripción</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr class="empty-table">
-                    <td colspan="6">No hay tipos de mano de obra registrados.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <form id="formAgregarManoObra" class="cuadricula-formulario">
+            <div class="mano-obra-layout">
+              <section class="mano-obra-panel mano-obra-panel--form" data-mano-obra-view="nuevo">
+                <div class="mano-obra-panel__heading">
+                  <div>
+                    <span class="mano-obra-panel__eyebrow">Información general</span>
+                    <h2>Nuevo tipo de mano de obra</h2>
+                    <p>Complete la información del tipo de trabajo.</p>
+                  </div>
+                </div>
+                <form id="formAgregarManoObra" class="cuadricula-formulario">
               <div class="grupo-formulario grupo-formulario--full">
                 <label for="manoObra-nombre">Tipo de trabajo *</label>
                 <input id="manoObra-nombre" name="nombre" type="text" maxlength="100" placeholder="Ej. Pintura, 2 manos" required />
@@ -459,7 +447,41 @@
                 <label for="manoObra-descripcion">Descripción</label>
                 <textarea id="manoObra-descripcion" name="descripcion" rows="3" placeholder="Detalle incluido en el trabajo"></textarea>
               </div>
-            </form>
+                </form>
+              </section>
+              <section class="mano-obra-panel mano-obra-panel--list" data-mano-obra-view="registrados">
+                <div class="mano-obra-panel__heading mano-obra-panel__heading--list">
+                  <div>
+                    <span class="mano-obra-panel__eyebrow">Catálogo</span>
+                    <h2>Tipos registrados</h2>
+                    <p>Edite o elimine un tipo existente desde la lista.</p>
+                  </div>
+                  <label class="mano-obra-search">
+                    <span aria-hidden="true">⌕</span>
+                    <input type="search" placeholder="Buscar tipo de trabajo..." data-table-search="tabla-mano-obra-modal">
+                  </label>
+                </div>
+                <div class="contenedor-tabla">
+                  <table id="tabla-mano-obra-modal">
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Tipo de trabajo</th>
+                        <th>Costo empresa</th>
+                        <th>Costo cliente</th>
+                        <th>Descripción</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="empty-table">
+                        <td colspan="6">No hay tipos de mano de obra registrados.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="boton boton-transparente" data-bs-dismiss="modal">Cancelar</button>
