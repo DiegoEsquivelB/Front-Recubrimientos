@@ -1821,6 +1821,7 @@ boton {
 .herramienta-proyecto-row span:first-child { min-width: 0; }
 .herramienta-proyecto-row small { color: #53647a; display: block; }
 .material-usage-label { color: #53647a; display: block; font-size: 11px; }
+.inventory-tool-usage { color: #53647a; display: block; font-size: 11px; line-height: 1.35; }
 .herramienta-proyecto-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
 @media (max-width: 600px) {

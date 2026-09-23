@@ -1865,7 +1865,7 @@ async function loadCrudLists() {
           <tr>
             <td>${imagen}</td>
             <td>${codigo}</td>
-            <td>${escapeHtml(nombre)}${item.modo_uso === 'Reutilizable' ? '<small class="material-usage-label">Reutilizable</small>' : ''}</td>
+            <td>${escapeHtml(nombre)}${item.modo_uso === 'Reutilizable' ? `<small class="material-usage-label">Reutilizable · ${Number(item.usos_estimados || 1)} usos iniciales</small>` : ''}</td>
             <td>${categoria}</td>
             <td>${unidad}</td>
             <td>${rendimiento !== '—' ? `${Number(rendimiento).toFixed(2)} m²` : '—'}</td>
@@ -2345,6 +2345,15 @@ async function showMaterialDetail(material) {
     : '<div class="detalle-material__image detalle-material__image--empty">Sin imagen</div>';
   const rendimiento = material.rendimiento ?? material.rendimiento_m2_gal ?? '—';
   const costo = material.costo ?? material.precio_unitario;
+  let toolAvailability = null;
+  if (material.modo_uso === 'Reutilizable') {
+    try {
+      const tools = await apiRequest('herramientas/disponibilidad');
+      toolAvailability = tools.find((tool) => Number(tool.id_material) === Number(material.id_material ?? material.id)) || null;
+    } catch (_error) {
+      // Los datos básicos del artículo siguen visibles si falla la consulta de disponibilidad.
+    }
+  }
   let variations = [];
   try {
     const related = await apiRequest(`materiales/${material.id_material ?? material.id}/variaciones`);
@@ -2376,6 +2385,13 @@ async function showMaterialDetail(material) {
         <div><span>Unidad</span><strong>${escapeHtml(material.unidad || material.unidad_medida || '—')}</strong></div>
         <div><span>Rendimiento</span><strong>${escapeHtml(String(rendimiento))} m²</strong></div>
         <div><span>Costo unitario</span><strong>${costo === undefined || costo === null ? '—' : `Q ${Number(costo).toFixed(2)}`}</strong></div>
+        ${material.modo_uso === 'Reutilizable' ? `
+          <div><span>Usos iniciales por unidad</span><strong>${Number(material.usos_estimados || 1)}</strong></div>
+          <div><span>Usos restantes (todas las unidades)</span><strong>${toolAvailability ? Number(toolAvailability.usos_disponibles) : '—'}</strong></div>
+          <div><span>Unidades disponibles</span><strong>${toolAvailability ? Number(toolAvailability.disponibles) : '—'}</strong></div>
+          <div><span>Unidades agotadas</span><strong>${toolAvailability ? Number(toolAvailability.agotadas) : '—'}</strong></div>
+          <div><span>Cobro por uso</span><strong>Q ${Number(material.precio_uso || 0).toFixed(2)}</strong></div>
+        ` : ''}
         <div><span>Stock mínimo</span><strong>${escapeHtml(String(material.stock_minimo ?? '0'))}</strong></div>
       </div>
       <div class="detalle-material__descripcion">
@@ -2932,6 +2948,10 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     form.querySelectorAll('[data-reusable-field]').forEach((field) => { field.hidden = !reusable || isLabor; });
     const usesInput = form.querySelector('#modalMaterial-usosEstimados');
     if (usesInput) usesInput.required = reusable && !isLabor;
+    const usePrice = form.querySelector('#modalMaterial-precioUso');
+    const cost = Number(form.querySelector('#modalMaterial-costo')?.value || 0);
+    const uses = Number(usesInput?.value || 0);
+    if (usePrice) usePrice.value = reusable && uses > 0 ? (cost / uses).toFixed(2) : '0.00';
     if (modeSelect) { modeSelect.disabled = isLabor; if (isLabor) modeSelect.value = 'Consumible'; }
     const laborPriceLabel = form.querySelector('label[for="modalMaterial-costo"]');
     if (laborPriceLabel) laborPriceLabel.textContent = isLabor ? 'Precio por m² (Q)' : 'Costo unitario (Q)';
@@ -2946,6 +2966,10 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   };
   paintingCheckbox?.addEventListener('change', updateLaborFields);
   modeSelect?.addEventListener('change', updateLaborFields);
+  const costInput = form.querySelector('#modalMaterial-costo');
+  if (costInput) costInput.oninput = updateLaborFields;
+  const usesInput = form.querySelector('#modalMaterial-usosEstimados');
+  if (usesInput) usesInput.oninput = updateLaborFields;
   colorVariationList.onclick = (event) => {
     if (!event.target.closest('[data-remove-color-variation]')) return;
     event.target.closest('[data-color-row]').remove();
@@ -3518,7 +3542,7 @@ async function setupProjectTools(form, projectId) {
   try {
     available = await apiRequest('herramientas/disponibilidad');
     select.innerHTML = '<option value="">Seleccione una herramienta</option>' + available
-      .map((tool) => `<option value="${escapeAttribute(tool.id_material)}" data-available="${Number(tool.disponibles)}">${escapeHtml(tool.nombre)} (${Number(tool.disponibles)} disponibles)</option>`).join('');
+      .map((tool) => `<option value="${escapeAttribute(tool.id_material)}" data-available="${Number(tool.disponibles)}">${escapeHtml(tool.nombre)} (${Number(tool.disponibles)} disponibles · ${Number(tool.usos_disponibles)} usos restantes · Q ${Number(tool.precio_uso).toFixed(2)}/uso)</option>`).join('');
   } catch (error) {
     showToast(error.message || 'No se pudo consultar la disponibilidad.', 'error');
   }
@@ -4282,7 +4306,7 @@ function renderInventoryTable(table, items) {
       <tr>
         <td><strong>${materialName}</strong>${code}</td>
         <td>${unit}</td>
-        <td>${formatInventoryNumber(stock)}</td>
+        <td>${formatInventoryNumber(stock)}${item.modo_uso === 'Reutilizable' ? `<small class="inventory-tool-usage">${formatInventoryNumber(item.disponibles)} disponibles · ${formatInventoryNumber(item.agotadas)} agotadas · ${formatInventoryNumber(item.usos_disponibles)} usos restantes</small>` : ''}</td>
         <td>${formatInventoryNumber(minimum)}</td>
         <td><span class="badge ${statusClass}">${status}</span></td>
       </tr>
