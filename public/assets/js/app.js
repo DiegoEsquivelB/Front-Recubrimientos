@@ -1764,7 +1764,12 @@ async function loadCrudLists() {
       return;
     }
     if (page === 'materiales.html') {
-      table.querySelector('tbody').innerHTML = items.map((item) => {
+      const materialItems = items.filter((item) => normalizeErrorText(item.categoria || item.tipo) !== 'mano de obra');
+      const laborItems = items.filter((item) => normalizeErrorText(item.categoria || item.tipo) === 'mano de obra');
+      const laborTable = document.getElementById('tabla-mano-obra');
+      const renderMaterialRows = (records, emptyMessage) => {
+        if (!records.length) return `<tr class="empty-table"><td colspan="9">${emptyMessage}</td></tr>`;
+        return records.map((item) => {
         const record = JSON.stringify(item);
         const idValue = findRecordId(item);
         const nombre = item.nombre || 'Sin nombre';
@@ -1806,14 +1811,21 @@ async function loadCrudLists() {
             </td>
           </tr>
         `;
-      }).join('');
-      bindEditButtons(table);
-      bindLaborEditButtons(table);
-      bindViewMaterialButtons(table);
-      bindMaterialMobileMenus(table);
-      bindDeleteButtons(table);
-      bindArchiveButtons(table);
-      bindUnarchiveButtons(table);
+        }).join('');
+      };
+      table.querySelector('tbody').innerHTML = renderMaterialRows(materialItems, 'No hay materiales registrados.');
+      if (laborTable) {
+        laborTable.querySelector('tbody').innerHTML = renderMaterialRows(laborItems, 'No hay tipos de mano de obra registrados.');
+      }
+      [table, laborTable].filter(Boolean).forEach((currentTable) => {
+        bindEditButtons(currentTable);
+        bindLaborEditButtons(currentTable);
+        bindViewMaterialButtons(currentTable);
+        bindMaterialMobileMenus(currentTable);
+        bindDeleteButtons(currentTable);
+        bindArchiveButtons(currentTable);
+        bindUnarchiveButtons(currentTable);
+      });
       refreshTableSearchCount(table);
       return;
     }
