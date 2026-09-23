@@ -1767,6 +1767,9 @@ async function loadCrudLists() {
       const materialItems = items.filter((item) => normalizeErrorText(item.categoria || item.tipo) !== 'mano de obra');
       const laborItems = items.filter((item) => normalizeErrorText(item.categoria || item.tipo) === 'mano de obra');
       const laborTable = document.getElementById('tabla-mano-obra-modal');
+      const laborCards = document.getElementById('mano-obra-cards-modal');
+      const laborSearch = document.getElementById('buscar-mano-obra-modal');
+      const laborCount = document.getElementById('mano-obra-list-count');
       const renderMaterialRows = (records, emptyMessage) => {
         if (!records.length) return `<tr class="empty-table"><td colspan="9">${emptyMessage}</td></tr>`;
         return records.map((item) => {
@@ -1823,8 +1826,9 @@ async function loadCrudLists() {
           const costoEmpresa = Number(item.costo ?? item.precio_unitario ?? 0);
           const costoCliente = Number(item.precio_venta ?? costoEmpresa);
           const descripcion = item.descripcion || '—';
+          const searchText = `${codigo} ${nombre} ${descripcion} ${costoEmpresa.toFixed(2)} ${costoCliente.toFixed(2)}`;
           return `
-            <tr>
+            <tr data-labor-search="${escapeAttribute(normalizeErrorText(searchText))}">
               <td>${escapeHtml(codigo)}</td>
               <td>${escapeHtml(nombre)}</td>
               <td>Q ${costoEmpresa.toFixed(2)}</td>
@@ -1842,11 +1846,64 @@ async function loadCrudLists() {
           `;
         }).join('');
       };
+      const renderLaborCards = (records) => {
+        if (!records.length) return '<p class="empty-table">No hay tipos de mano de obra registrados.</p>';
+        return records.map((item) => {
+          const record = JSON.stringify(item);
+          const idValue = findRecordId(item);
+          const codigo = item.codigo || '—';
+          const nombre = item.nombre || 'Sin nombre';
+          const costoEmpresa = Number(item.costo ?? item.precio_unitario ?? 0);
+          const costoCliente = Number(item.precio_venta ?? costoEmpresa);
+          const descripcion = item.descripcion || '';
+          const searchText = `${codigo} ${nombre} ${descripcion} ${costoEmpresa.toFixed(2)} ${costoCliente.toFixed(2)}`;
+          return `
+            <article class="labor-card" data-labor-search="${escapeAttribute(normalizeErrorText(searchText))}">
+              <div>
+                <strong>${escapeHtml(codigo)}</strong>
+                <span>${escapeHtml(nombre)}</span>
+                <small>Q ${costoEmpresa.toFixed(2)} &nbsp; | &nbsp; Q ${costoCliente.toFixed(2)}</small>
+              </div>
+              <div class="labor-card__actions">
+                ${mostrarMaterialesArchivados
+                  ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="materiales" title="Desarchivar tipo de trabajo">Desarchivar</button>`
+                  : `<button class="boton boton-icono" type="button" data-edit-labor-id="${idValue ?? ''}" data-record='${escapeAttribute(record)}' title="Editar tipo de trabajo"><img src="../assets/img/ico editar.png" alt="Editar tipo de trabajo"></button>
+                     ${isAdministrator
+                       ? `<button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="materiales" title="Eliminar definitivamente"><img src="../assets/img/ico eliminar.png" alt="Eliminar definitivamente"></button>`
+                       : `<button class="boton boton-icono boton-secundario" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="materiales" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}`}
+              </div>
+            </article>
+          `;
+        }).join('');
+      };
+      const filterLaborRecords = () => {
+        const query = normalizeErrorText(laborSearch?.value || '');
+        let visibleCount = 0;
+        laborTable?.querySelectorAll('tbody tr[data-labor-search]').forEach((row) => {
+          const visible = !query || row.dataset.laborSearch.includes(query);
+          row.hidden = !visible;
+          if (visible) visibleCount += 1;
+        });
+        laborCards?.querySelectorAll('[data-labor-search]').forEach((card) => {
+          card.hidden = Boolean(query) && !card.dataset.laborSearch.includes(query);
+        });
+        if (laborCount) {
+          const count = query ? visibleCount : laborItems.length;
+          laborCount.textContent = `Mostrando ${count} ${count === 1 ? 'tipo' : 'tipos'} de trabajo`;
+        }
+      };
       table.querySelector('tbody').innerHTML = renderMaterialRows(materialItems, 'No hay materiales registrados.');
       if (laborTable) {
         laborTable.querySelector('tbody').innerHTML = renderLaborRows(laborItems);
       }
-      [table, laborTable].filter(Boolean).forEach((currentTable) => {
+      if (laborCards) {
+        laborCards.innerHTML = renderLaborCards(laborItems);
+      }
+      if (laborSearch) {
+        laborSearch.oninput = filterLaborRecords;
+      }
+      filterLaborRecords();
+      [table, laborTable, laborCards].filter(Boolean).forEach((currentTable) => {
         bindEditButtons(currentTable);
         bindLaborEditButtons(currentTable);
         bindViewMaterialButtons(currentTable);
@@ -2478,7 +2535,7 @@ function showPepsDetailModal(detail) {
   modal.querySelector('.modal-peps-detalle__contenido').textContent = detail;
   modal.addEventListener('hidden.bs.modal', () => modal.remove(), { once: true });
   document.body.appendChild(modal);
-  bootstrap.Modal.getOrCreateInstance(modal).show();
+  new bootstrap.Modal(modal).show();
 }
 
 function showClienteFicha(cliente) {
@@ -2560,12 +2617,16 @@ function setupLaborModal() {
   const saveButton = document.getElementById('btnGuardarManoObra');
   if (!button || !modal || !form || !saveButton || typeof bootstrap === 'undefined') return;
 
-  modal.querySelectorAll('[data-mano-obra-tab]').forEach((tab) => {
-    tab.addEventListener('click', () => setLaborModalView(tab.dataset.manoObraTab));
-  });
+  const description = form.querySelector('[name="descripcion"]');
+  const counter = form.querySelector('.labor-form__counter');
+  const updateDescriptionCounter = () => {
+    if (counter && description) counter.textContent = `${description.value.length}/250`;
+  };
+  description?.addEventListener('input', updateDescriptionCounter);
 
   button.addEventListener('click', () => {
     openLaborModal();
+    updateDescriptionCounter();
   });
 
   saveButton.onclick = async () => {
@@ -2602,17 +2663,6 @@ function setupLaborModal() {
   };
 }
 
-function setLaborModalView(view = 'nuevo') {
-  const modal = document.getElementById('modalAgregarManoObra');
-  if (!modal) return;
-  modal.dataset.manoObraView = view;
-  modal.querySelectorAll('[data-mano-obra-tab]').forEach((tab) => {
-    const isActive = tab.dataset.manoObraTab === view;
-    tab.classList.toggle('activa', isActive);
-    tab.setAttribute('aria-selected', String(isActive));
-  });
-}
-
 function openLaborModal(material = null, id = '') {
   const modal = document.getElementById('modalAgregarManoObra');
   const form = document.getElementById('formAgregarManoObra');
@@ -2621,7 +2671,6 @@ function openLaborModal(material = null, id = '') {
 
   form.reset();
   form.dataset.editId = id || '';
-  setLaborModalView('nuevo');
   clearFormErrors();
   if (title) title.textContent = material ? 'Editar tipo de mano de obra' : 'Nuevo tipo de mano de obra';
   if (material) {
@@ -2630,6 +2679,7 @@ function openLaborModal(material = null, id = '') {
     form.querySelector('[name="precio_venta"]').value = material.precio_venta ?? material.costo ?? material.precio_unitario ?? '';
     form.querySelector('[name="descripcion"]').value = material.descripcion || '';
   }
+  form.querySelector('.labor-form__counter')?.replaceChildren(document.createTextNode(`${form.querySelector('[name="descripcion"]').value.length}/250`));
   bootstrap.Modal.getOrCreateInstance(modal).show();
 }
 

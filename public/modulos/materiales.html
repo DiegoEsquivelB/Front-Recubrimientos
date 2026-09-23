@@ -85,7 +85,7 @@
                 </div>
               </div>
 
-              <div class="barra-herramientas barra-herramientas-dividida">
+              <div class="barra-herramientas barra-herramientas-dividida barra-herramientas-materiales">
                 <div class="pestanas-materiales" role="tablist" aria-label="Vista de materiales">
                   <button type="button" class="pestana-material activa" id="btnMaterialesActivos" role="tab" aria-selected="true">Activos</button>
                   <button type="button" class="pestana-material" id="btnMaterialesArchivados" role="tab" aria-selected="false">Archivados</button>
@@ -407,61 +407,85 @@
       aria-labelledby="modalAgregarManoObraLabel"
       aria-hidden="true"
     >
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="modalAgregarManoObraLabel">Nuevo tipo de mano de obra</h5>
+            <div class="modal-labor-header">
+              <span class="modal-labor-header__icon" aria-hidden="true">⌂</span>
+              <div>
+                <h5 class="modal-title" id="modalAgregarManoObraLabel">Nuevo tipo de mano de obra</h5>
+                <p>Registre un nuevo tipo de mano de obra o edite uno existente.</p>
+              </div>
+            </div>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
           </div>
           <div class="modal-body">
-            <div class="mano-obra-tabs" role="tablist" aria-label="Gestión de mano de obra">
-              <button type="button" class="mano-obra-tab activa" data-mano-obra-tab="nuevo" role="tab" aria-selected="true">Nuevo</button>
-              <button type="button" class="mano-obra-tab" data-mano-obra-tab="registrados" role="tab" aria-selected="false">Registrados</button>
+            <div class="labor-mobile-tabs" aria-label="Vista de mano de obra">
+              <button type="button" class="labor-mobile-tab labor-mobile-tab--active">
+                <span aria-hidden="true">+</span>
+                Nuevo
+              </button>
+              <button type="button" class="labor-mobile-tab">
+                <span aria-hidden="true">☷</span>
+                Registrados
+              </button>
             </div>
-            <div class="mano-obra-layout">
-              <section class="mano-obra-panel mano-obra-panel--form" data-mano-obra-view="nuevo">
-                <div class="mano-obra-panel__heading">
+            <div class="labor-modal-layout">
+              <section class="labor-modal-panel labor-modal-panel--form" aria-labelledby="labor-form-title">
+                <div class="labor-modal-panel__header">
                   <div>
-                    <span class="mano-obra-panel__eyebrow">Información general</span>
-                    <h2>Nuevo tipo de mano de obra</h2>
-                    <p>Complete la información del tipo de trabajo.</p>
+                    <h2 id="labor-form-title">Información general</h2>
+                    <p>Complete la información del tipo de mano de obra.</p>
                   </div>
                 </div>
-                <form id="formAgregarManoObra" class="cuadricula-formulario">
-              <div class="grupo-formulario grupo-formulario--full">
-                <label for="manoObra-nombre">Tipo de trabajo *</label>
-                <input id="manoObra-nombre" name="nombre" type="text" maxlength="100" placeholder="Ej. Pintura, 2 manos" required />
-                <small class="error-formulario" id="error-mano-obra-nombre" style="display: none"></small>
-              </div>
-              <div class="grupo-formulario">
-                <label for="manoObra-costo">Costo empresa por m² (Q) *</label>
-                <input id="manoObra-costo" name="costo" type="number" min="0" step="0.01" placeholder="6.00" required />
-                <small class="error-formulario" id="error-mano-obra-costo" style="display: none"></small>
-              </div>
-              <div class="grupo-formulario">
-                <label for="manoObra-precioCliente">Costo cliente por m² (Q) *</label>
-                <input id="manoObra-precioCliente" name="precio_venta" type="number" min="0" step="0.01" placeholder="10.00" required />
-                <small class="error-formulario" id="error-mano-obra-cliente" style="display: none"></small>
-              </div>
-              <div class="grupo-formulario grupo-formulario--full">
-                <label for="manoObra-descripcion">Descripción</label>
-                <textarea id="manoObra-descripcion" name="descripcion" rows="3" placeholder="Detalle incluido en el trabajo"></textarea>
-              </div>
+                <form id="formAgregarManoObra" class="cuadricula-formulario labor-form">
+                  <div class="grupo-formulario grupo-formulario--full">
+                    <label for="manoObra-nombre">Tipo de trabajo *</label>
+                    <div class="labor-field">
+                      <span aria-hidden="true">▰</span>
+                      <input id="manoObra-nombre" name="nombre" type="text" maxlength="100" placeholder="Ej. Pintura, 2 manos" required />
+                    </div>
+                    <small class="error-formulario" id="error-mano-obra-nombre" style="display: none"></small>
+                  </div>
+                  <div class="grupo-formulario">
+                    <label for="manoObra-costo">Costo empresa por m² (Q) *</label>
+                    <div class="labor-field">
+                      <span aria-hidden="true">▦</span>
+                      <input id="manoObra-costo" name="costo" type="number" min="0" step="0.01" placeholder="0.00" required />
+                    </div>
+                    <small class="error-formulario" id="error-mano-obra-costo" style="display: none"></small>
+                  </div>
+                  <div class="grupo-formulario">
+                    <label for="manoObra-precioCliente">Costo cliente por m² (Q) *</label>
+                    <div class="labor-field">
+                      <span aria-hidden="true">●</span>
+                      <input id="manoObra-precioCliente" name="precio_venta" type="number" min="0" step="0.01" placeholder="0.00" required />
+                    </div>
+                    <small class="error-formulario" id="error-mano-obra-cliente" style="display: none"></small>
+                  </div>
+                  <div class="grupo-formulario grupo-formulario--full">
+                    <label for="manoObra-descripcion">Descripción</label>
+                    <div class="labor-field labor-field--textarea">
+                      <span aria-hidden="true">▤</span>
+                      <textarea id="manoObra-descripcion" name="descripcion" rows="5" maxlength="250" placeholder="Describa el tipo de trabajo, condiciones o notas adicionales..."></textarea>
+                    </div>
+                    <small class="labor-form__counter">0/250</small>
+                  </div>
                 </form>
               </section>
-              <section class="mano-obra-panel mano-obra-panel--list" data-mano-obra-view="registrados">
-                <div class="mano-obra-panel__heading mano-obra-panel__heading--list">
+
+              <section class="labor-modal-panel labor-modal-panel--list" aria-labelledby="labor-list-title">
+                <div class="labor-modal-panel__header labor-modal-panel__header--split">
                   <div>
-                    <span class="mano-obra-panel__eyebrow">Catálogo</span>
-                    <h2>Tipos registrados</h2>
+                    <h2 id="labor-list-title">Tipos registrados</h2>
                     <p>Edite o elimine un tipo existente desde la lista.</p>
                   </div>
-                  <label class="mano-obra-search">
+                  <label class="labor-search" for="buscar-mano-obra-modal">
                     <span aria-hidden="true">⌕</span>
-                    <input type="search" placeholder="Buscar tipo de trabajo..." data-table-search="tabla-mano-obra-modal">
+                    <input id="buscar-mano-obra-modal" type="search" placeholder="Buscar tipo de trabajo..." />
                   </label>
                 </div>
-                <div class="contenedor-tabla">
+                <div class="contenedor-tabla labor-table-wrap">
                   <table id="tabla-mano-obra-modal">
                     <thead>
                       <tr>
@@ -480,6 +504,8 @@
                     </tbody>
                   </table>
                 </div>
+                <div class="labor-cards" id="mano-obra-cards-modal" aria-live="polite"></div>
+                <p class="labor-list-count" id="mano-obra-list-count">Mostrando 0 tipos de trabajo</p>
               </section>
             </div>
           </div>
