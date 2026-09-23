@@ -147,34 +147,6 @@
                 </table>
               </div>
 
-              <div class="encabezado-panel encabezado-panel--tabla-secundaria">
-                <div>
-                  <h2>Tipos de mano de obra</h2>
-                  <p>Consulte y gestione los trabajos disponibles para los proyectos.</p>
-                </div>
-              </div>
-              <div class="contenedor-tabla">
-                <table id="tabla-mano-obra">
-                  <thead>
-                    <tr>
-                      <th>Imagen</th>
-                      <th>Código</th>
-                      <th>Tipo de trabajo</th>
-                      <th>Categoría</th>
-                      <th>Unidad</th>
-                      <th>Rendimiento</th>
-                      <th>Costo</th>
-                      <th>Stock mínimo</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr class="empty-table">
-                      <td colspan="9">No hay tipos de mano de obra registrados.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
             </article>
           </div>
         </section>
@@ -442,6 +414,31 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
           </div>
           <div class="modal-body">
+            <div class="encabezado-panel">
+              <div>
+                <h2>Tipos registrados</h2>
+                <p>Edite o elimine un tipo existente, o use el formulario para agregar uno nuevo.</p>
+              </div>
+            </div>
+            <div class="contenedor-tabla">
+              <table id="tabla-mano-obra-modal">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Tipo de trabajo</th>
+                    <th>Costo empresa</th>
+                    <th>Costo cliente</th>
+                    <th>Descripción</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="empty-table">
+                    <td colspan="6">No hay tipos de mano de obra registrados.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
             <form id="formAgregarManoObra" class="cuadricula-formulario">
               <div class="grupo-formulario grupo-formulario--full">
                 <label for="manoObra-nombre">Tipo de trabajo *</label>

@@ -1766,7 +1766,7 @@ async function loadCrudLists() {
     if (page === 'materiales.html') {
       const materialItems = items.filter((item) => normalizeErrorText(item.categoria || item.tipo) !== 'mano de obra');
       const laborItems = items.filter((item) => normalizeErrorText(item.categoria || item.tipo) === 'mano de obra');
-      const laborTable = document.getElementById('tabla-mano-obra');
+      const laborTable = document.getElementById('tabla-mano-obra-modal');
       const renderMaterialRows = (records, emptyMessage) => {
         if (!records.length) return `<tr class="empty-table"><td colspan="9">${emptyMessage}</td></tr>`;
         return records.map((item) => {
@@ -1813,9 +1813,38 @@ async function loadCrudLists() {
         `;
         }).join('');
       };
+      const renderLaborRows = (records) => {
+        if (!records.length) return '<tr class="empty-table"><td colspan="6">No hay tipos de mano de obra registrados.</td></tr>';
+        return records.map((item) => {
+          const record = JSON.stringify(item);
+          const idValue = findRecordId(item);
+          const codigo = item.codigo || '—';
+          const nombre = item.nombre || 'Sin nombre';
+          const costoEmpresa = Number(item.costo ?? item.precio_unitario ?? 0);
+          const costoCliente = Number(item.precio_venta ?? costoEmpresa);
+          const descripcion = item.descripcion || '—';
+          return `
+            <tr>
+              <td>${escapeHtml(codigo)}</td>
+              <td>${escapeHtml(nombre)}</td>
+              <td>Q ${costoEmpresa.toFixed(2)}</td>
+              <td>Q ${costoCliente.toFixed(2)}</td>
+              <td>${escapeHtml(descripcion)}</td>
+              <td>
+                ${mostrarMaterialesArchivados
+                  ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="materiales" title="Desarchivar tipo de trabajo">Desarchivar</button>`
+                  : `<button class="boton boton-icono" type="button" data-edit-labor-id="${idValue ?? ''}" data-record='${escapeAttribute(record)}' title="Editar tipo de trabajo"><img src="../assets/img/ico editar.png" alt="Editar tipo de trabajo"></button>
+                     ${isAdministrator
+                       ? `<button class="boton boton-icono boton-peligro" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="materiales" title="Eliminar definitivamente"><img src="../assets/img/ico eliminar.png" alt="Eliminar definitivamente"></button>`
+                       : `<button class="boton boton-icono boton-secundario" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="materiales" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}`}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      };
       table.querySelector('tbody').innerHTML = renderMaterialRows(materialItems, 'No hay materiales registrados.');
       if (laborTable) {
-        laborTable.querySelector('tbody').innerHTML = renderMaterialRows(laborItems, 'No hay tipos de mano de obra registrados.');
+        laborTable.querySelector('tbody').innerHTML = renderLaborRows(laborItems);
       }
       [table, laborTable].filter(Boolean).forEach((currentTable) => {
         bindEditButtons(currentTable);
