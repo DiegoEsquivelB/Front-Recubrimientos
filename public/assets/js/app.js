@@ -1470,12 +1470,12 @@ function cargarOpcionesMaterialesProyecto(select) {
         const isLabor = normalizeErrorText(material.categoria || material.tipo) === 'mano de obra';
         const id = material.id_material ?? material.id ?? '';
         const stockDisponible = stockPorMaterial[String(id)] ?? 0;
-        return !isLabor && stockDisponible > 0;
+        return !isLabor && material.modo_uso !== 'Reutilizable' && stockDisponible > 0;
       });
       select.innerHTML = '<option value="">Seleccione un material</option>' + regularMaterials.map((material) => {
         const id = material.id_material ?? material.id ?? '';
         const name = material.nombre || 'Material sin nombre';
-        const precio = Number(material.precio_unitario ?? material.precio ?? 0);
+        const precio = Number(material.precio_venta ?? material.precio_unitario ?? material.precio ?? 0);
         const stockDisponible = stockPorMaterial[String(id)] ?? 0;
         const rendimiento = Number(material.rendimiento ?? material.rendimiento_m2_gal ?? 0);
         const unidad = material.unidad ?? material.unidad_medida ?? 'unidad';
@@ -1865,7 +1865,7 @@ async function loadCrudLists() {
           <tr>
             <td>${imagen}</td>
             <td>${codigo}</td>
-            <td>${nombre}</td>
+            <td>${escapeHtml(nombre)}${item.modo_uso === 'Reutilizable' ? '<small class="material-usage-label">Reutilizable</small>' : ''}</td>
             <td>${categoria}</td>
             <td>${unidad}</td>
             <td>${rendimiento !== '—' ? `${Number(rendimiento).toFixed(2)} m²` : '—'}</td>
@@ -2433,9 +2433,15 @@ async function showProyectoDetalle(proyecto) {
     }
   }
 
+  let herramientas = [];
+  if (projectId) {
+    try { herramientas = await apiRequest(`proyectos/${projectId}/herramientas`); }
+    catch (_error) { herramientas = []; }
+  }
   const totalMateriales = materiales.reduce((sum, item) => sum + Number(item.costo_subtotal ?? 0), 0);
-  const costoTotalCalculado = costoTotal || totalMateriales + costoManoObra;
-  const precioCotizacion = totalMateriales + precioManoObra || precioCotizacionRegistrada;
+  const precioMateriales = materiales.reduce((sum, item) => sum + Number(item.precio_subtotal ?? item.costo_subtotal ?? 0), 0);
+  const costoTotalCalculado = costoTotal || totalMateriales + costoManoObra + Number(proyecto.costo_herramientas || 0);
+  const precioCotizacion = precioCotizacionRegistrada || precioMateriales + precioManoObra + Number(proyecto.precio_herramientas || 0);
   const utilidad = precioCotizacion - costoTotalCalculado;
 
   const materialesHtml = materiales.length
@@ -2454,8 +2460,8 @@ async function showProyectoDetalle(proyecto) {
             ${materiales.map((item) => {
               const nombreMaterial = item.material_nombre || item.nombre || 'Material';
               const cantidad = Math.trunc(Number(item.cantidad_calculada ?? item.cantidad ?? 0));
-              const precioUnitario = Number(item.precio_unitario ?? 0);
-              const subtotal = Number(item.costo_subtotal ?? 0).toFixed(2);
+              const precioUnitario = Number(item.precio_venta ?? item.precio_unitario ?? 0);
+              const subtotal = Number(item.precio_subtotal ?? item.costo_subtotal ?? 0).toFixed(2);
               let detallePeps = [];
               try {
                 detallePeps = typeof item.detalle_peps === 'string' ? JSON.parse(item.detalle_peps) : (item.detalle_peps || []);
@@ -2565,6 +2571,10 @@ async function showProyectoDetalle(proyecto) {
         <div class="valor-ficha-cliente">${escapeHtml(tipo)}</div>
       </div>
       ${materialesHtml}
+      <div class="fila-ficha-cliente">
+        <label class="etiqueta-ficha-cliente">Herramientas:</label>
+        <div class="valor-ficha-cliente">${herramientas.length ? herramientas.map((tool) => `<div>${escapeHtml(tool.material_nombre)}: ${Number(tool.cantidad)} asignadas, ${Number(tool.pendientes)} pendientes · uso Q ${Number(tool.precio_uso).toFixed(2)}${Number(tool.precio_baja) ? ` · reposición Q ${Number(tool.precio_baja).toFixed(2)}` : ''}</div>`).join('') : 'Sin herramientas asignadas'}</div>
+      </div>
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Descripción:</label>
         <div class="valor-ficha-cliente rich-text-content">${sanitizeRichText(descripcion)}</div>
@@ -2855,6 +2865,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
   await loadMaterialCategories(material ? material.categoria : '');
 
   const categorySelect = form.querySelector('#modalMaterial-categoria');
+  const modeSelect = form.querySelector('#modalMaterial-modoUso');
   const codeInput = form.querySelector('#modalMaterial-codigo');
   const colorVariationsGroup = form.querySelector('[data-color-variations]');
   const addColorVariationButton = form.querySelector('[data-add-color-variation]');
@@ -2916,19 +2927,25 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     const selectedCategoryName = categorySelect?.selectedOptions[0]?.textContent || categorySelect?.value || '';
     const normalizedCategory = normalizeErrorText(selectedCategoryName);
     const isLabor = normalizedCategory === 'mano de obra';
-    const supportsColorVariants = Boolean(paintingCheckbox?.checked) && !isLabor;
+    const reusable = modeSelect?.value === 'Reutilizable';
+    const supportsColorVariants = Boolean(paintingCheckbox?.checked) && !isLabor && !reusable;
+    form.querySelectorAll('[data-reusable-field]').forEach((field) => { field.hidden = !reusable || isLabor; });
+    const usesInput = form.querySelector('#modalMaterial-usosEstimados');
+    if (usesInput) usesInput.required = reusable && !isLabor;
+    if (modeSelect) { modeSelect.disabled = isLabor; if (isLabor) modeSelect.value = 'Consumible'; }
     const laborPriceLabel = form.querySelector('label[for="modalMaterial-costo"]');
     if (laborPriceLabel) laborPriceLabel.textContent = isLabor ? 'Precio por m² (Q)' : 'Costo unitario (Q)';
     if (paintingGroup) paintingGroup.hidden = Boolean(material);
     if (colorVariationsGroup) colorVariationsGroup.hidden = Boolean(material) || !supportsColorVariants;
     if (paintingCheckbox) {
-      paintingCheckbox.disabled = isLabor;
-      if (isLabor) paintingCheckbox.checked = false;
+      paintingCheckbox.disabled = isLabor || reusable;
+      if (isLabor || reusable) paintingCheckbox.checked = false;
     }
     setupMaterialInitialInventory(form, !material && !isLabor);
     syncColorVariationFields();
   };
   paintingCheckbox?.addEventListener('change', updateLaborFields);
+  modeSelect?.addEventListener('change', updateLaborFields);
   colorVariationList.onclick = (event) => {
     if (!event.target.closest('[data-remove-color-variation]')) return;
     event.target.closest('[data-color-row]').remove();
@@ -2985,6 +3002,10 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     form.querySelector('#modalMaterial-unidad').value = material.unidad || '';
     form.querySelector('#modalMaterial-rendimiento').value = material.rendimiento ?? '';
     form.querySelector('#modalMaterial-costo').value = material.costo ?? '';
+    form.querySelector('#modalMaterial-precioVenta').value = material.precio_venta ?? material.costo ?? '';
+    if (modeSelect) modeSelect.value = material.modo_uso || 'Consumible';
+    form.querySelector('#modalMaterial-usosEstimados').value = material.usos_estimados ?? 1;
+    form.querySelector('#modalMaterial-precioUso').value = material.precio_uso ?? 0;
     form.querySelector('#modalMaterial-minimo').value = material.stock_minimo ?? material.stockMinimo ?? '';
     if (paintingCheckbox) paintingCheckbox.checked = Boolean(material.color || material.codigo_color);
     setRichTextValue('modalMaterial-descripcion', material.descripcion || '');
@@ -3486,6 +3507,71 @@ function bindProjectAreaCalculation(form) {
   updateArea();
 }
 
+async function setupProjectTools(form, projectId) {
+  const select = form.querySelector('#proyecto-herramienta-select');
+  const quantityInput = form.querySelector('#proyecto-herramienta-cantidad');
+  const list = form.querySelector('#listaHerramientasProyecto');
+  const addButton = form.querySelector('#btnAgregarHerramientaProyecto');
+  if (!select || !list || !addButton) return;
+  list.innerHTML = '';
+  let available = [];
+  try {
+    available = await apiRequest('herramientas/disponibilidad');
+    select.innerHTML = '<option value="">Seleccione una herramienta</option>' + available
+      .map((tool) => `<option value="${escapeAttribute(tool.id_material)}" data-available="${Number(tool.disponibles)}">${escapeHtml(tool.nombre)} (${Number(tool.disponibles)} disponibles)</option>`).join('');
+  } catch (error) {
+    showToast(error.message || 'No se pudo consultar la disponibilidad.', 'error');
+  }
+  const renderRow = (tool, pending = false) => {
+    const row = document.createElement('div');
+    row.className = 'herramienta-proyecto-row';
+    row.dataset.toolPending = pending ? 'true' : 'false';
+    row.dataset.materialId = String(tool.id_material);
+    row.dataset.cantidad = String(tool.cantidad);
+    row.innerHTML = `<span><strong>${escapeHtml(tool.material_nombre || tool.nombre)}</strong><small>${pending ? 'Por asignar' : `${Number(tool.pendientes)} pendientes`} · ${Number(tool.cantidad)} un.</small></span><span class="herramienta-proyecto-actions"></span>`;
+    const actions = row.querySelector('.herramienta-proyecto-actions');
+    if (pending) {
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.className = 'btn btn-sm btn-outline-danger'; remove.textContent = 'Quitar';
+      remove.onclick = () => row.remove(); actions.appendChild(remove);
+    } else if (Number(tool.pendientes) > 0) {
+      for (const [label, type] of [['Devolver', 'Devolucion'], ['Dar de baja', 'Baja']]) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'btn btn-sm btn-outline-secondary'; button.textContent = label;
+        button.onclick = async () => {
+          const amount = Number(window.prompt(`Cantidad a ${type === 'Baja' ? 'dar de baja' : 'devolver'} (máximo ${tool.pendientes}):`, String(tool.pendientes)));
+          if (!Number.isInteger(amount) || amount < 1 || amount > Number(tool.pendientes)) return;
+          const charge = type === 'Baja' && window.confirm('¿Cobrar al cliente el precio de reposición?');
+          try {
+            await apiRequest(`proyectos/${projectId}/herramientas/${tool.id_asignacion}/movimiento`, { method: 'POST', body: { tipo: type, cantidad: amount, cobrar_reposicion: charge } });
+            showToast(type === 'Baja' ? 'Baja registrada.' : 'Devolución registrada.', 'success');
+            await setupProjectTools(form, projectId);
+          } catch (error) { showToast(error.message, 'error'); }
+        };
+        actions.appendChild(button);
+      }
+    }
+    list.appendChild(row);
+  };
+  if (projectId) {
+    try { (await apiRequest(`proyectos/${projectId}/herramientas`)).forEach((tool) => renderRow(tool)); }
+    catch (error) { showToast(error.message || 'No se pudieron consultar las asignaciones.', 'error'); }
+  }
+  addButton.onclick = () => {
+    const materialId = Number(select.value);
+    const quantity = Number(quantityInput.value);
+    const tool = available.find((item) => Number(item.id_material) === materialId);
+    const pending = [...list.querySelectorAll('[data-tool-pending="true"]')]
+      .filter((row) => Number(row.dataset.materialId) === materialId)
+      .reduce((sum, row) => sum + Number(row.dataset.cantidad), 0);
+    if (!tool || !Number.isInteger(quantity) || quantity < 1 || quantity + pending > Number(tool.disponibles)) {
+      showToast('Seleccione una herramienta con cantidad disponible.', 'error'); return;
+    }
+    renderRow({ ...tool, cantidad: quantity }, true);
+    quantityInput.value = '1';
+  };
+}
+
 async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos') {
   const modal = document.getElementById('modalEditarProyecto');
   const form = document.getElementById('formEditarProyecto');
@@ -3508,6 +3594,7 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
   }
 
   await bindProjectMaterialButtons(form);
+  await setupProjectTools(form, id || proyecto?.id_proyecto || proyecto?.id || '');
 
   const projectMaterialsList = form.querySelector('#listaMaterialesProyecto');
   if (projectMaterialsList) {
@@ -3527,11 +3614,11 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
         item.dataset.projectMaterialItem = 'true';
         item.dataset.materialId = String(row.id_material ?? '');
         item.dataset.cantidad = String(row.cantidad_calculada ?? 0);
-        item.dataset.precioUnitario = String(row.precio_unitario ?? 0);
+        item.dataset.precioUnitario = String(row.precio_venta ?? row.precio_unitario ?? 0);
         item.innerHTML = `
           <span class="material-proyecto-nombre">${escapeHtml(row.material_nombre || 'Material')}</span>
           <span class="material-proyecto-cantidad">${Number(row.cantidad_calculada || 0).toFixed(2)} un.</span>
-          <span class="material-proyecto-subtotal">Q ${Number(row.costo_subtotal || 0).toFixed(2)}</span>
+          <span class="material-proyecto-subtotal">Q ${Number(row.precio_subtotal ?? row.costo_subtotal ?? 0).toFixed(2)}</span>
           <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-material">Quitar</button>
         `;
         item.querySelector('.btn-quitar-material').onclick = () => item.remove();
@@ -3577,9 +3664,10 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
       const projectId = form.querySelector('input[name="id"]').value;
       const payload = normalizeProjectPayload(objectFromForm(form));
       const materialesSeleccionados = obtenerMaterialesProyecto(form);
-      if (materialesSeleccionados.length) {
-        payload.materiales = materialesSeleccionados;
-      }
+      payload.materiales = materialesSeleccionados;
+      payload.herramientas = [...form.querySelectorAll('[data-tool-pending="true"]')].map((row) => ({
+        id_material: Number(row.dataset.materialId), cantidad: Number(row.dataset.cantidad)
+      }));
 
       if (!projectId) {
         payload.estado = 'Pendiente';

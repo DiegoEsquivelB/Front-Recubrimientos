@@ -1808,6 +1808,27 @@ boton {
   margin-top: 10px;
 }
 
+.herramienta-proyecto-row {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 2px;
+}
+
+.herramienta-proyecto-row span:first-child { min-width: 0; }
+.herramienta-proyecto-row small { color: #53647a; display: block; }
+.material-usage-label { color: #53647a; display: block; font-size: 11px; }
+.herramienta-proyecto-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (max-width: 600px) {
+  .materiales-proyecto-control > select { flex-basis: 100%; min-width: 0; }
+  .materiales-proyecto-control > input { flex: 1 1 90px; min-width: 0; }
+  .materiales-proyecto-control > button { flex: 0 0 auto; }
+}
+
 .tabla-materiales-proyecto {
   border: 1px solid var(--line);
   border-radius: 12px;

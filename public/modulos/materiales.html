@@ -305,6 +305,29 @@
                 />
               </div>
 
+              <div class="grupo-formulario">
+                <label for="modalMaterial-precioVenta">Precio de venta o reposición (Q)</label>
+                <input id="modalMaterial-precioVenta" name="precio_venta" type="number" min="0" step="0.01" placeholder="0.00" />
+              </div>
+
+              <div class="grupo-formulario">
+                <label for="modalMaterial-modoUso">Modo de uso</label>
+                <select id="modalMaterial-modoUso" name="modo_uso">
+                  <option value="Consumible">Consumible</option>
+                  <option value="Reutilizable">Reutilizable</option>
+                </select>
+              </div>
+
+              <div class="grupo-formulario" data-reusable-field hidden>
+                <label for="modalMaterial-usosEstimados">Usos estimados *</label>
+                <input id="modalMaterial-usosEstimados" name="usos_estimados" type="number" min="1" step="1" value="1" />
+              </div>
+
+              <div class="grupo-formulario" data-reusable-field hidden>
+                <label for="modalMaterial-precioUso">Cobro al cliente por uso (Q)</label>
+                <input id="modalMaterial-precioUso" name="precio_uso" type="number" min="0" step="0.01" value="0" />
+              </div>
+
               <div class="grupo-formulario grupo-formulario--full">
                 <label for="modalMaterial-descripcion">Descripción</label>
                 <div class="editor-texto" data-rich-text-editor="modalMaterial-descripcion"></div>

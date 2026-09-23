@@ -233,6 +233,16 @@
               </div>
 
               <div class="grupo-formulario grupo-formulario--full">
+                <label for="proyecto-herramienta-select">Herramientas reutilizables</label>
+                <div class="materiales-proyecto-control">
+                  <select id="proyecto-herramienta-select"><option value="">Seleccione una herramienta</option></select>
+                  <input id="proyecto-herramienta-cantidad" type="number" min="1" step="1" value="1" aria-label="Cantidad de herramientas" />
+                  <button type="button" class="boton boton-principal" id="btnAgregarHerramientaProyecto">Asignar</button>
+                </div>
+                <div id="listaHerramientasProyecto" class="lista-herramientas-proyecto"></div>
+              </div>
+
+              <div class="grupo-formulario grupo-formulario--full">
                 <label for="modalProyecto-descripcion">Descripción y observaciones</label>
                 <div class="editor-texto" data-rich-text-editor="modalProyecto-descripcion"></div>
                 <textarea id="modalProyecto-descripcion" name="descripcion" rows="3" placeholder="Detalle del trabajo a realizar"></textarea>
