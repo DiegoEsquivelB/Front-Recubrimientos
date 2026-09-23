@@ -22,6 +22,67 @@ const mostrarArchivados = {
   usuarios: false
 };
 const richTextEditors = new Map();
+const closingModals = new WeakSet();
+const queuedModalReopens = new WeakSet();
+
+function showAppModal(modal) {
+  const instance = bootstrap.Modal.getOrCreateInstance(modal);
+  if (closingModals.has(modal)) {
+    if (!queuedModalReopens.has(modal)) {
+      queuedModalReopens.add(modal);
+      modal.addEventListener('hidden.bs.modal', () => {
+        queuedModalReopens.delete(modal);
+        setTimeout(() => showAppModal(modal), 0);
+      }, { once: true });
+    }
+    return instance;
+  }
+  if (modal.classList.contains('show')) return instance;
+  instance.show();
+  return instance;
+}
+
+function setupModalLifecycle() {
+  const activeModals = new Set();
+  document.addEventListener('show.bs.modal', (event) => activeModals.add(event.target));
+  document.addEventListener('hide.bs.modal', (event) => closingModals.add(event.target));
+  document.addEventListener('hidden.bs.modal', (event) => {
+    closingModals.delete(event.target);
+    activeModals.delete(event.target);
+    setTimeout(() => {
+      if (activeModals.size) {
+        document.body.classList.add('modal-open');
+        const backdrops = [...document.querySelectorAll('.modal-backdrop')];
+        backdrops.slice(0, Math.max(0, backdrops.length - activeModals.size)).forEach((backdrop) => backdrop.remove());
+        return;
+      }
+      document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.remove());
+      document.body.classList.remove('modal-open');
+      if (document.body.style.overflow === 'hidden') document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+    }, 0);
+  });
+}
+
+async function showTemporaryModal(modal) {
+  const parent = [...document.querySelectorAll('.modal.show')].findLast((item) => item !== modal);
+  if (parent) {
+    const parentInstance = bootstrap.Modal.getOrCreateInstance(parent);
+    await new Promise((resolve) => {
+      const hideAfterShow = () => parentInstance.hide();
+      parent.addEventListener('shown.bs.modal', hideAfterShow, { once: true });
+      parent.addEventListener('hidden.bs.modal', () => {
+        parent.removeEventListener('shown.bs.modal', hideAfterShow);
+        resolve();
+      }, { once: true });
+      parentInstance.hide();
+    });
+    modal.addEventListener('hidden.bs.modal', () => {
+      if (parent.isConnected) showAppModal(parent);
+    }, { once: true });
+  }
+  showAppModal(modal);
+}
 
 function initializeRichTextEditors() {
   if (typeof Quill === 'undefined') return;
@@ -125,6 +186,7 @@ function getLoginErrorMessage(error) {
 
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
+    setupModalLifecycle();
     setCurrentDate();
     setActiveNavigation();
     applyRoleAccess();
@@ -728,8 +790,7 @@ function setupReportModal() {
   button.addEventListener('click', () => {
     form.reset();
     clearFormErrors();
-    const bootstrapModal = new bootstrap.Modal(modal);
-    bootstrapModal.show();
+    showAppModal(modal);
   });
 
   form.addEventListener('submit', (event) => {
@@ -2201,7 +2262,7 @@ function showConfirmationModal({ title, message, confirmText = 'Confirmar', dang
       </div>
     `;
     document.body.appendChild(modal);
-    const instance = new bootstrap.Modal(modal);
+    const instance = bootstrap.Modal.getOrCreateInstance(modal);
     let settled = false;
     const finish = (confirmed) => {
       if (settled) return;
@@ -2215,9 +2276,10 @@ function showConfirmationModal({ title, message, confirmText = 'Confirmar', dang
     });
     modal.addEventListener('hidden.bs.modal', () => {
       if (!settled) resolve(false);
+      instance.dispose();
       modal.remove();
     }, { once: true });
-    instance.show();
+    showTemporaryModal(modal).catch(() => finish(false));
   });
 }
 
@@ -2246,7 +2308,7 @@ function showMaterialDeleteModal() {
       </div>
     `;
     document.body.appendChild(modal);
-    const instance = new bootstrap.Modal(modal);
+    const instance = bootstrap.Modal.getOrCreateInstance(modal);
     let settled = false;
     const finish = (action) => {
       if (settled) return;
@@ -2257,8 +2319,11 @@ function showMaterialDeleteModal() {
     modal.querySelectorAll('[data-action]').forEach((button) => {
       button.addEventListener('click', () => finish(button.dataset.action));
     });
-    modal.addEventListener('hidden.bs.modal', () => modal.remove(), { once: true });
-    instance.show();
+    modal.addEventListener('hidden.bs.modal', () => {
+      instance.dispose();
+      modal.remove();
+    }, { once: true });
+    showTemporaryModal(modal).catch(() => finish('cancel'));
   });
 }
 
@@ -2402,7 +2467,7 @@ async function showMaterialDetail(material) {
     </div>
   `;
 
-  bootstrap.Modal.getOrCreateInstance(modal).show();
+  showAppModal(modal);
 }
 
 function bindViewProyectoButtons(table) {
@@ -2601,14 +2666,15 @@ async function showProyectoDetalle(proyecto) {
   content.querySelectorAll('[data-peps-detail]').forEach((button) => {
     button.onclick = () => showPepsDetailModal(button.dataset.pepsDetail || 'Sin detalle');
   });
-
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 function showPepsDetailModal(detail) {
   const previousModal = document.querySelector('[data-peps-modal]');
-  if (previousModal) previousModal.remove();
+  if (previousModal) {
+    previousModal.querySelector('.modal-peps-detalle__contenido').textContent = detail;
+    return;
+  }
 
   const modal = document.createElement('div');
   modal.className = 'modal fade modal-peps-detalle';
@@ -2634,9 +2700,12 @@ function showPepsDetailModal(detail) {
     </div>
   `;
   modal.querySelector('.modal-peps-detalle__contenido').textContent = detail;
-  modal.addEventListener('hidden.bs.modal', () => modal.remove(), { once: true });
+  modal.addEventListener('hidden.bs.modal', () => {
+    bootstrap.Modal.getInstance(modal)?.dispose();
+    modal.remove();
+  }, { once: true });
   document.body.appendChild(modal);
-  new bootstrap.Modal(modal).show();
+  showTemporaryModal(modal);
 }
 
 function showClienteFicha(cliente) {
@@ -2678,8 +2747,7 @@ function showClienteFicha(cliente) {
   `;
 
   content.innerHTML = fieldsHTML;
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 function setupMaterialModal() {
@@ -2781,7 +2849,7 @@ function openLaborModal(material = null, id = '') {
     form.querySelector('[name="descripcion"]').value = material.descripcion || '';
   }
   form.querySelector('.labor-form__counter')?.replaceChildren(document.createTextNode(`${form.querySelector('[name="descripcion"]').value.length}/250`));
-  bootstrap.Modal.getOrCreateInstance(modal).show();
+  showAppModal(modal);
 }
 
 function bindLaborEditButtons(table) {
@@ -3148,8 +3216,7 @@ async function openMaterialModal(material = null, id = '', endpoint = 'materiale
     }
   };
 
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 async function loadMaterialCategories(selectedValue = '') {
@@ -3279,8 +3346,7 @@ async function openMaterialCategoriesModal() {
     }
   };
 
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 function setupClienteModal() {
@@ -3346,8 +3412,7 @@ function setupClienteModal() {
     };
 
     // Mostrar modal
-    const bootstrapModal = new bootstrap.Modal(modal);
-    bootstrapModal.show();
+    showAppModal(modal);
   });
 }
 
@@ -3425,8 +3490,7 @@ function openClienteEditModal(cliente, id, endpoint) {
   };
 
   // Mostrar modal
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 function findRecordId(item) {
@@ -3728,8 +3792,7 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
     }
   };
 
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 async function setupProyectoModule() {
@@ -3911,8 +3974,7 @@ function openUsuarioModal(usuario = null, id = '', endpoint = 'usuarios') {
     }
   };
 
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 async function setupInventoryModule() {
@@ -3964,9 +4026,7 @@ async function openInventoryMovementModal() {
   setDefaultDate();
   await loadInventoryMaterials();
   await loadInventoryUsers();
-
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 function setupInventoryCostField(form) {
@@ -4270,8 +4330,7 @@ function showMovementDetail(movement) {
     </div>
   `;
 
-  const bootstrapModal = new bootstrap.Modal(modal);
-  bootstrapModal.show();
+  showAppModal(modal);
 }
 
 function renderInventorySummary(items) {

@@ -2992,6 +2992,7 @@ td {
 .labor-field textarea {
   border: 0;
   border-radius: 0;
+  flex: 1 1 auto;
   min-height: 42px;
   padding: 8px 0;
 }
