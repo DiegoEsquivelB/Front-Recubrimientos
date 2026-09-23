@@ -1788,6 +1788,22 @@ boton {
   flex-shrink: 0;
 }
 
+.estimacion-material-proyecto {
+  background: #eef7f6;
+  border: 1px solid #c6e5df;
+  border-radius: 8px;
+  color: #1c6059;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 10px 12px;
+}
+
+.estimacion-material-proyecto--insuficiente {
+  background: #fff3ee;
+  border-color: #f1c5b8;
+  color: #a54736;
+}
+
 .lista-materiales-proyecto {
   margin-top: 10px;
 }

@@ -1388,10 +1388,61 @@ function crearFilaMaterialProyecto(material, cantidad, precio, showActions = tru
   return row;
 }
 
+function updateProjectMaterialEstimate(form) {
+  const select = form.querySelector('#proyecto-material-select');
+  const quantityInput = form.querySelector('#proyecto-material-cantidad');
+  const areaInput = form.querySelector('#modalProyecto-area');
+  const estimate = form.querySelector('#proyecto-material-estimacion');
+  if (!select || !quantityInput || !areaInput || !estimate) return;
+
+  const option = select.selectedOptions[0];
+  const area = Number(areaInput.value);
+  const coverage = Number(option?.dataset.rendimiento);
+  if (form.querySelector('input[name="id"]')?.value) {
+    estimate.hidden = true;
+    estimate.textContent = '';
+    return;
+  }
+  if (!select.value || option?.dataset.pintura !== 'true' || !Number.isFinite(area) || area <= 0) {
+    estimate.hidden = true;
+    estimate.textContent = '';
+    if (quantityInput.dataset.manualEstimate !== 'true') quantityInput.value = '';
+    return;
+  }
+
+  estimate.hidden = false;
+  if (!Number.isFinite(coverage) || coverage <= 0) {
+    estimate.textContent = 'Esta pintura no tiene rendimiento registrado; la cantidad debe ingresarse manualmente.';
+    estimate.classList.add('estimacion-material-proyecto--insuficiente');
+    if (quantityInput.dataset.manualEstimate !== 'true') quantityInput.value = '';
+    return;
+  }
+
+  const needed = Math.ceil(area / coverage);
+  const assigned = Array.from(form.querySelectorAll('[data-project-material-item]'))
+    .filter((item) => item.dataset.materialId === select.value)
+    .reduce((sum, item) => sum + Number(item.dataset.cantidad || 0), 0);
+  const remaining = Math.max(0, needed - assigned);
+  const stock = Number(option.dataset.stock || 0);
+  const available = Math.max(0, stock - assigned);
+  const unit = option.dataset.unidad || 'unidad';
+  const unitKey = normalizeErrorText(unit);
+  const plural = { galon: 'galones', litro: 'litros', cubeta: 'cubetas', unidad: 'unidades' }[unitKey];
+  const unitLabel = needed === 1 ? unit.toLowerCase() : (plural || `unidades (${unit})`);
+  const shortage = Math.max(0, remaining - available);
+
+  estimate.classList.toggle('estimacion-material-proyecto--insuficiente', shortage > 0);
+  estimate.textContent = `Para 1 mano: ${area.toFixed(2)} m² ÷ ${coverage.toFixed(2)} m²/${unit.toLowerCase()} → ${needed} ${unitLabel}. ${assigned ? `Ya asignadas: ${assigned}. Por agregar: ${remaining}. ` : ''}Disponible: ${available}.${shortage ? ` Faltan ${shortage}.` : ''}`;
+  if (quantityInput.dataset.manualEstimate !== 'true') {
+    quantityInput.value = remaining > 0 ? String(remaining) : '';
+  }
+}
+
 function cargarOpcionesMaterialesProyecto(select) {
   if (!select) return;
 
   const laborSelect = document.getElementById('proyecto-mano-obra-select');
+  select.innerHTML = '<option value="">Seleccione un material</option>';
 
   return Promise.all([
     apiRequest('materiales'),
@@ -1426,7 +1477,10 @@ function cargarOpcionesMaterialesProyecto(select) {
         const name = material.nombre || 'Material sin nombre';
         const precio = Number(material.precio_unitario ?? material.precio ?? 0);
         const stockDisponible = stockPorMaterial[String(id)] ?? 0;
-        return `<option value="${escapeAttribute(id)}" data-precio="${escapeAttribute(String(precio))}" data-stock="${escapeAttribute(String(Math.trunc(Number(stockDisponible))))}">${escapeHtml(name)} - Q ${Number(precio).toFixed(2)} - Disponible: ${Math.trunc(Number(stockDisponible))}</option>`;
+        const rendimiento = Number(material.rendimiento ?? material.rendimiento_m2_gal ?? 0);
+        const unidad = material.unidad ?? material.unidad_medida ?? 'unidad';
+        const isPaint = /pintur/i.test(`${material.tipo || material.categoria || ''} ${name}`);
+        return `<option value="${escapeAttribute(id)}" data-nombre="${escapeAttribute(name)}" data-precio="${escapeAttribute(String(precio))}" data-stock="${escapeAttribute(String(Math.trunc(Number(stockDisponible))))}" data-rendimiento="${escapeAttribute(String(rendimiento))}" data-unidad="${escapeAttribute(String(unidad))}" data-pintura="${isPaint}">${escapeHtml(name)} - Q ${Number(precio).toFixed(2)} - Disponible: ${Math.trunc(Number(stockDisponible))}</option>`;
       }).join('');
 
       if (laborSelect) {
@@ -1455,6 +1509,20 @@ async function bindProjectMaterialButtons(form) {
   ensureProjectMaterialTable(list);
   await cargarOpcionesMaterialesProyecto(select);
 
+  delete cantidadInput.dataset.manualEstimate;
+  if (form.dataset.materialEstimateBound !== 'true') {
+    select.addEventListener('change', () => {
+      delete cantidadInput.dataset.manualEstimate;
+      updateProjectMaterialEstimate(form);
+    });
+    cantidadInput.addEventListener('input', () => {
+      cantidadInput.dataset.manualEstimate = 'true';
+    });
+    form.querySelector('#modalProyecto-area')?.addEventListener('input', () => updateProjectMaterialEstimate(form));
+    form.dataset.materialEstimateBound = 'true';
+  }
+  updateProjectMaterialEstimate(form);
+
   addButton.onclick = () => {
     const materialId = Number(select.value || 0);
     const cantidad = Number(cantidadInput.value || 0);
@@ -1465,7 +1533,7 @@ async function bindProjectMaterialButtons(form) {
     }
 
     const selectedOption = select.options[select.selectedIndex];
-    const nombre = selectedOption ? selectedOption.text.replace(/\s*-\s*Q\s*[0-9.]+/i, '') : 'Material';
+    const nombre = selectedOption?.dataset.nombre || 'Material';
     const precio = Number(selectedOption?.dataset?.precio || 0);
     const stockDisponible = Number(selectedOption?.dataset?.stock || 0);
 
@@ -1485,6 +1553,8 @@ async function bindProjectMaterialButtons(form) {
       existingItem.querySelector('.material-proyecto-subtotal').textContent = `Q ${(newCantidad * precio).toFixed(2)}`;
       cantidadInput.value = '';
       select.selectedIndex = 0;
+      delete cantidadInput.dataset.manualEstimate;
+      updateProjectMaterialEstimate(form);
       return;
     }
 
@@ -1501,10 +1571,15 @@ async function bindProjectMaterialButtons(form) {
       <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-material">Quitar</button>
     `;
 
-    row.querySelector('.btn-quitar-material').onclick = () => row.remove();
+    row.querySelector('.btn-quitar-material').onclick = () => {
+      row.remove();
+      updateProjectMaterialEstimate(form);
+    };
     body.appendChild(row);
     cantidadInput.value = '';
     select.selectedIndex = 0;
+    delete cantidadInput.dataset.manualEstimate;
+    updateProjectMaterialEstimate(form);
   };
 }
 
@@ -3399,6 +3474,7 @@ function bindProjectAreaCalculation(form) {
     const length = Number(lengthInput.value);
     const height = Number(heightInput.value);
     areaInput.value = length > 0 && height > 0 ? (length * height).toFixed(2) : '';
+    areaInput.dispatchEvent(new Event('input', { bubbles: true }));
   };
 
   if (form.dataset.areaCalculationBound !== 'true') {
