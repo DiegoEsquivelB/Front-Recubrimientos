@@ -556,14 +556,32 @@ async function loadCalculatorMaterials() {
   const select = document.getElementById('calculo-material');
   if (!select) return;
 
+  const rendimientoInput = document.getElementById('calculo-rendimiento');
+  const costoInput = document.getElementById('calculo-costo');
+  const syncMaterialValues = () => {
+    const selectedOption = select.options[select.selectedIndex];
+    if (!selectedOption || !select.value) {
+      if (rendimientoInput) rendimientoInput.value = '';
+      if (costoInput) costoInput.value = '';
+      return;
+    }
+    if (rendimientoInput) rendimientoInput.value = selectedOption.dataset.rendimiento || '';
+    if (costoInput) costoInput.value = selectedOption.dataset.costo || '';
+  };
+
+  select.addEventListener('change', syncMaterialValues);
+
   try {
     const response = await apiRequest('materiales');
     const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
     select.innerHTML = '<option value="">Seleccione un material</option>' + items.map((material) => {
       const id = material.id_material ?? material.id ?? '';
       const name = material.nombre || 'Material sin nombre';
-      return `<option value="${escapeAttribute(id)}">${escapeHtml(name)}</option>`;
+      const rendimiento = Number(material.rendimiento ?? material.rendimiento_m2_gal ?? 0);
+      const costo = Number(material.costo ?? material.precio_unitario ?? 0);
+      return `<option value="${escapeAttribute(id)}" data-rendimiento="${escapeAttribute(String(rendimiento))}" data-costo="${escapeAttribute(String(costo))}">${escapeHtml(name)}</option>`;
     }).join('');
+    syncMaterialValues();
   } catch (error) {
     console.warn('No se pudieron cargar los materiales para el cálculo:', error.message);
   }
@@ -1519,13 +1537,14 @@ function renderProjectPipeline(items = []) {
   const pipeline = document.getElementById('pipelineProyectos');
   if (!pipeline) return;
 
+  const activeItems = items.filter((item) => item.estado_archivado !== 'Archivado');
   const groups = {
     Pendiente: [],
     'En proceso': [],
     Finalizado: []
   };
 
-  items.forEach((item) => {
+  activeItems.forEach((item) => {
     const estado = item.estado || 'Pendiente';
     const safeState = estado === 'En proceso' ? 'En proceso' : (estado === 'Finalizado' ? 'Finalizado' : 'Pendiente');
     if (!groups[safeState]) {
@@ -1650,6 +1669,9 @@ async function loadCrudLists() {
 
     if (!items.length) {
       renderEmptyTable(table, config.emptyMessage);
+      if (page === 'proyectos.html') {
+        renderProjectPipeline([]);
+      }
       refreshTableSearchCount(table);
       if (page === 'inventario.html') {
         renderInventorySummary([]);
@@ -3260,6 +3282,27 @@ async function setupProyectoModal() {
   });
 }
 
+function bindProjectAreaCalculation(form) {
+  const lengthInput = form.querySelector('input[name="largo"]');
+  const heightInput = form.querySelector('input[name="altura"]');
+  const areaInput = form.querySelector('input[name="area_m2"]');
+  if (!lengthInput || !heightInput || !areaInput) return;
+
+  const updateArea = () => {
+    const length = Number(lengthInput.value);
+    const height = Number(heightInput.value);
+    areaInput.value = length > 0 && height > 0 ? (length * height).toFixed(2) : '';
+  };
+
+  if (form.dataset.areaCalculationBound !== 'true') {
+    lengthInput.addEventListener('input', updateArea);
+    heightInput.addEventListener('input', updateArea);
+    form.dataset.areaCalculationBound = 'true';
+  }
+
+  updateArea();
+}
+
 async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos') {
   const modal = document.getElementById('modalEditarProyecto');
   const form = document.getElementById('formEditarProyecto');
@@ -3335,6 +3378,8 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
   } else {
     form.querySelector('select[name="estado"]').value = 'Pendiente';
   }
+
+  bindProjectAreaCalculation(form);
 
   const btnGuardar = document.getElementById('btnGuardarProyecto');
   btnGuardar.onclick = async () => {
