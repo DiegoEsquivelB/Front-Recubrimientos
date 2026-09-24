@@ -4496,6 +4496,12 @@ td {
 }
 
 @media (max-width: 640px) {
+  #tabla-proyectos tbody tr:not(.empty-table) td:last-child::before,
+  #tabla-clientes tbody tr.mobile-entity-card td:last-child::before,
+  #tabla-usuarios tbody tr.mobile-entity-card td:last-child::before {
+    display: none;
+  }
+
   #tabla-clientes tbody tr.mobile-entity-card,
   #tabla-usuarios tbody tr.mobile-entity-card {
     cursor: pointer;
@@ -4623,6 +4629,32 @@ td {
     padding: 9px 12px;
     text-align: left;
     width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .modal > .modal-dialog {
+    align-items: center;
+    display: flex;
+    margin: .5rem auto;
+    min-height: calc(100% - 1rem);
+  }
+
+  .modal > .modal-dialog-scrollable {
+    height: calc(100% - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+
+  .modal > .modal-dialog:not(.modal-dialog-scrollable) {
+    max-height: calc(100dvh - 1rem);
+  }
+
+  .modal > .modal-dialog:not(.modal-dialog-scrollable) .modal-content {
+    max-height: 100%;
+  }
+
+  .modal > .modal-dialog:not(.modal-dialog-scrollable) .modal-body {
+    overflow-y: auto;
   }
 }
 
