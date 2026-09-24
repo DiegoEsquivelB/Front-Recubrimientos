@@ -2542,10 +2542,12 @@ function bindMaterialMobileMenus(table) {
   });
 }
 
+const mobileCardViewportQuery = '(max-width: 640px), (max-width: 950px) and (max-height: 500px) and (orientation: landscape) and (pointer: coarse)';
+
 function bindProjectMobileCards(table) {
   table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
     row.onclick = (event) => {
-      if (!window.matchMedia('(max-width: 640px)').matches) return;
+      if (!window.matchMedia(mobileCardViewportQuery).matches) return;
       if (event.target.closest('button, a, [data-project-menu]')) return;
       row.querySelector('[data-view-proyecto-id]')?.click();
     };
@@ -2582,7 +2584,7 @@ function bindProjectMobileCards(table) {
 function bindEntityMobileCards(table, detailSelector) {
   table.querySelectorAll('tbody tr.mobile-entity-card').forEach((row) => {
     row.onclick = (event) => {
-      if (!window.matchMedia('(max-width: 640px)').matches) return;
+      if (!window.matchMedia(mobileCardViewportQuery).matches) return;
       if (event.target.closest('button, a, [data-entity-menu]')) return;
       if (detailSelector) {
         row.querySelector(detailSelector)?.click();
