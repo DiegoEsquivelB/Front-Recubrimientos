@@ -707,7 +707,7 @@ async function renderReportPreview(form, preview) {
     const report = await apiRequest(`reportes?${query.toString()}`);
     const rows = Array.isArray(report.filas) ? report.filas : [];
     const headers = report.columnas || [];
-    const tableRows = rows.map((row) => `<tr>${Object.values(row).map((value) => `<td>${escapeHtml(formatReportValue(value))}</td>`).join('')}</tr>`).join('');
+    const tableRows = rows.map((row) => `<tr>${Object.values(row).map((value, index) => `<td data-label="${escapeAttribute(headers[index] || '')}">${escapeHtml(formatReportValue(value))}</td>`).join('')}</tr>`).join('');
     preview.innerHTML = `<div class="encabezado-panel"><div><h2>Vista previa</h2><p>${escapeHtml(report.tipo)} · ${rows.length} registro(s)</p></div><div class="acciones-reporte"><button class="boton boton-secundario" type="button" data-export-report="excel">Excel</button><button class="boton boton-secundario" type="button" data-export-report="pdf">PDF</button></div></div><div class="contenido-reporte"><h3>${escapeHtml(report.tipo)}</h3><div class="tabla-reporte"><table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${tableRows || `<tr><td colspan="${headers.length}">No hay información para los filtros seleccionados.</td></tr>`}</tbody></table></div></div>`;
     preview.querySelectorAll('[data-export-report]').forEach((button) => button.addEventListener('click', () => {
       if (button.dataset.exportReport === 'pdf') downloadReportPdf(report);
@@ -1867,18 +1867,34 @@ async function loadCrudLists() {
       table.querySelector('tbody').innerHTML = items.map((item) => {
         const record = JSON.stringify(item);
         const idValue = item.id_cliente ?? item.idCliente ?? item.id ?? '';
+        const name = item.nombre || item.razonSocial || 'Sin nombre';
+        const isArchived = item.estado_archivado === 'Archivado';
+        const mobileRemoveAction = isArchived
+          ? `<button class="mobile-action-target" type="button" data-unarchive-id="${idValue}" data-unarchive-endpoint="${config.endpoint}">Desarchivar</button>`
+          : isAdministrator
+            ? `<button class="mobile-action-target" type="button" data-delete-id="${idValue}" data-delete-endpoint="${config.endpoint}">Eliminar</button>`
+            : `<button class="mobile-action-target" type="button" data-archive-id="${idValue}" data-archive-endpoint="${config.endpoint}">Archivar</button>`;
+        const removeLabel = isArchived ? 'Desarchivar' : isAdministrator ? 'Eliminar' : 'Archivar';
         return `
-          <tr>
-            <td>${item.nombre || item.razonSocial || 'Sin nombre'}</td>
-            <td>${item.telefono || '—'}</td>
-            <td>${item.correo || '—'}</td>
-            <td>${item.estado_archivado === 'Archivado' ? 'Archivado' : 'Activo'}</td>
+          <tr class="mobile-entity-card">
+            <td><strong class="mobile-entity-card__title">${escapeHtml(name)}</strong></td>
+            <td>${escapeHtml(item.telefono || '—')}</td>
+            <td>${escapeHtml(item.correo || '—')}</td>
+            <td>${isArchived ? 'Archivado' : 'Activo'}</td>
             <td>
-              <button class="boton boton-icono" type="button" data-view-ficha="${idValue}" data-record='${escapeAttribute(record)}' title="Ver ficha completa"><img src="../assets/img/ico lupa.png" alt="Ver ficha"></button>
-              <button class="boton boton-icono" type="button" data-edit-id="${idValue}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
-              ${showArchived
-                ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue}" data-unarchive-endpoint="${config.endpoint}" title="Desarchivar">Desarchivar</button>`
-                : `<button class="boton boton-icono boton-peligro" type="button" data-archive-id="${idValue}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}
+              <div class="mobile-entity-card__desktop-actions">
+                <button class="boton boton-icono" type="button" data-view-ficha="${idValue}" data-record='${escapeAttribute(record)}' title="Ver ficha completa"><img src="../assets/img/ico lupa.png" alt="Ver ficha"></button>
+                <button class="boton boton-icono" type="button" data-edit-id="${idValue}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
+                ${showArchived
+                  ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue}" data-unarchive-endpoint="${config.endpoint}" title="Desarchivar">Desarchivar</button>`
+                  : `<button class="boton boton-icono boton-peligro" type="button" data-archive-id="${idValue}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}
+              </div>
+              <button class="mobile-entity-card__menu-trigger" type="button" data-entity-menu-trigger aria-label="Más opciones" aria-expanded="false">⋮</button>
+              <div class="mobile-entity-card__menu" data-entity-menu hidden>
+                <button type="button" data-entity-menu-action="edit">Editar</button>
+                <button type="button" data-entity-menu-action="remove">${removeLabel}</button>
+              </div>
+              ${mobileRemoveAction}
             </td>
           </tr>
         `;
@@ -1887,6 +1903,8 @@ async function loadCrudLists() {
       bindEditButtons(table);
       bindArchiveButtons(table);
       bindUnarchiveButtons(table);
+      bindDeleteButtons(table);
+      bindEntityMobileCards(table, '[data-view-ficha]');
       return;
     }
 
@@ -1914,9 +1932,17 @@ async function loadCrudLists() {
         const image = item.tiene_imagen
           ? `<img class="project-table-photo" data-project-image src="${escapeAttribute(projectImageUrl(idValue))}" alt="Foto de ${escapeAttribute(nombre)}" loading="lazy">`
           : '<span class="project-table-photo project-table-photo--empty" aria-label="Sin foto">▧</span>';
+        const mobileRemoveAction = showArchived
+          ? `<button class="project-mobile-action-target" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="${config.endpoint}">Desarchivar</button>`
+          : isAdministrator
+            ? `<button class="project-mobile-action-target" type="button" data-delete-id="${idValue ?? ''}" data-delete-endpoint="${config.endpoint}">Eliminar</button>`
+            : estado === 'Finalizado'
+              ? `<button class="project-mobile-action-target" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="${config.endpoint}">Archivar</button>`
+              : '';
+        const mobileRemoveLabel = showArchived ? 'Desarchivar' : isAdministrator ? 'Eliminar' : 'Archivar';
         return `
           <tr data-status="${escapeAttribute(estado)}" data-project-id="${idValue ?? ''}">
-            <td><div class="project-table-identity">${image}<strong>${escapeHtml(nombre)}</strong></div></td>
+            <td><div class="project-table-identity"><span class="project-table-identity__photo">${image}</span><strong>${escapeHtml(nombre)}</strong></div></td>
             <td>${escapeHtml(cliente)}</td>
             <td>${escapeHtml(codigo)}</td>
             <td>${escapeHtml(fecha)}</td>
@@ -1928,13 +1954,21 @@ async function loadCrudLists() {
             <td>Q ${cotizacionCliente.toFixed(2)}</td>
             <td><span class="project-state-badge project-state-badge--${estadoClass}">${escapeHtml(estado)}</span></td>
             <td>
-              <button class="boton boton-icono" type="button" data-view-proyecto-id="${idValue ?? ''}" data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
-              <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
+              <div class="project-actions-desktop">
+                <button class="boton boton-icono" type="button" data-view-proyecto-id="${idValue ?? ''}" data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
+                <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
               ${showArchived
                 ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="${config.endpoint}" title="Desarchivar">Desarchivar</button>`
                 : (estado === 'Finalizado'
                   ? `<button class="boton boton-icono boton-peligro" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`
                   : '')}
+              </div>
+              <button class="project-mobile-menu-trigger" type="button" data-project-menu-trigger aria-label="Más opciones" aria-expanded="false">⋮</button>
+              <div class="project-mobile-menu" data-project-menu hidden>
+                <button type="button" data-project-menu-action="edit">Editar</button>
+                ${mobileRemoveAction ? `<button type="button" data-project-menu-action="remove">${mobileRemoveLabel}</button>` : ''}
+              </div>
+              ${mobileRemoveAction}
             </td>
           </tr>
         `;
@@ -1967,6 +2001,8 @@ async function loadCrudLists() {
         bindEditButtons(table);
         bindArchiveButtons(table);
         bindUnarchiveButtons(table);
+        bindDeleteButtons(table);
+        bindProjectMobileCards(table);
         const params = new URLSearchParams(window.location.search);
         const projectId = params.get('ver') || params.get('editar');
         if (projectId) {
@@ -2150,17 +2186,32 @@ async function loadCrudLists() {
         const correo = item.email || item.correo || '—';
         const rol = item.rol || '—';
         const estado = item.estado || 'Activo';
+        const isArchived = item.estado_archivado === 'Archivado';
+        const mobileRemoveAction = isArchived
+          ? `<button class="mobile-action-target" type="button" data-unarchive-id="${idValue}" data-unarchive-endpoint="${config.endpoint}">Desarchivar</button>`
+          : isAdministrator
+            ? `<button class="mobile-action-target" type="button" data-delete-id="${idValue}" data-delete-endpoint="${config.endpoint}">Eliminar</button>`
+            : `<button class="mobile-action-target" type="button" data-archive-id="${idValue}" data-archive-endpoint="${config.endpoint}">Archivar</button>`;
+        const removeLabel = isArchived ? 'Desarchivar' : isAdministrator ? 'Eliminar' : 'Archivar';
         return `
-          <tr>
-            <td>${nombre}</td>
-            <td>${correo}</td>
-            <td>${rol}</td>
-            <td>${estado}</td>
+          <tr class="mobile-entity-card">
+            <td><strong class="mobile-entity-card__title">${escapeHtml(nombre)}</strong></td>
+            <td>${escapeHtml(correo)}</td>
+            <td>${escapeHtml(rol)}</td>
+            <td>${escapeHtml(estado)}</td>
             <td>
-              <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
-              ${showArchived
-                ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="${config.endpoint}" title="Desarchivar">Desarchivar</button>`
-                : `<button class="boton boton-icono boton-peligro" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}
+              <div class="mobile-entity-card__desktop-actions">
+                <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
+                ${showArchived
+                  ? `<button class="boton boton-transparente" type="button" data-unarchive-id="${idValue ?? ''}" data-unarchive-endpoint="${config.endpoint}" title="Desarchivar">Desarchivar</button>`
+                  : `<button class="boton boton-icono boton-peligro" type="button" data-archive-id="${idValue ?? ''}" data-archive-endpoint="${config.endpoint}" title="Archivar"><img src="../assets/img/ico eliminar.png" alt="Archivar"></button>`}
+              </div>
+              <button class="mobile-entity-card__menu-trigger" type="button" data-entity-menu-trigger aria-label="Más opciones" aria-expanded="false">⋮</button>
+              <div class="mobile-entity-card__menu" data-entity-menu hidden>
+                <button type="button" data-entity-menu-action="edit">Editar</button>
+                <button type="button" data-entity-menu-action="remove">${removeLabel}</button>
+              </div>
+              ${mobileRemoveAction}
             </td>
           </tr>
         `;
@@ -2168,6 +2219,8 @@ async function loadCrudLists() {
       bindEditButtons(table);
       bindArchiveButtons(table);
       bindUnarchiveButtons(table);
+      bindDeleteButtons(table);
+      bindEntityMobileCards(table, null);
       return;
     }
 
@@ -2487,6 +2540,117 @@ function bindMaterialMobileMenus(table) {
       };
     });
   });
+}
+
+function bindProjectMobileCards(table) {
+  table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
+    row.onclick = (event) => {
+      if (!window.matchMedia('(max-width: 640px)').matches) return;
+      if (event.target.closest('button, a, [data-project-menu]')) return;
+      row.querySelector('[data-view-proyecto-id]')?.click();
+    };
+  });
+
+  table.querySelectorAll('[data-project-menu-trigger]').forEach((trigger) => {
+    const menu = trigger.parentElement.querySelector('[data-project-menu]');
+    if (!menu) return;
+
+    trigger.onclick = (event) => {
+      event.stopPropagation();
+      const shouldOpen = menu.hidden;
+      table.querySelectorAll('[data-project-menu]').forEach((item) => { item.hidden = true; });
+      table.querySelectorAll('[data-project-menu-trigger]').forEach((item) => { item.setAttribute('aria-expanded', 'false'); });
+      menu.hidden = !shouldOpen;
+      trigger.setAttribute('aria-expanded', String(shouldOpen));
+    };
+
+    menu.querySelectorAll('[data-project-menu-action]').forEach((option) => {
+      option.onclick = (event) => {
+        event.stopPropagation();
+        const row = trigger.closest('tr');
+        const target = option.dataset.projectMenuAction === 'edit'
+          ? row?.querySelector('[data-edit-id]')
+          : row?.querySelector('.project-mobile-action-target') || row?.querySelector('[data-delete-id], [data-archive-id], [data-unarchive-id]');
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+        target?.click();
+      };
+    });
+  });
+}
+
+function bindEntityMobileCards(table, detailSelector) {
+  table.querySelectorAll('tbody tr.mobile-entity-card').forEach((row) => {
+    row.onclick = (event) => {
+      if (!window.matchMedia('(max-width: 640px)').matches) return;
+      if (event.target.closest('button, a, [data-entity-menu]')) return;
+      if (detailSelector) {
+        row.querySelector(detailSelector)?.click();
+        return;
+      }
+      const record = parseRecordData(row.querySelector('[data-edit-id]')?.dataset.record);
+      if (record) showUsuarioDetalle(record);
+    };
+  });
+
+  table.querySelectorAll('[data-entity-menu-trigger]').forEach((trigger) => {
+    const menu = trigger.parentElement.querySelector('[data-entity-menu]');
+    if (!menu) return;
+
+    trigger.onclick = (event) => {
+      event.stopPropagation();
+      const shouldOpen = menu.hidden;
+      table.querySelectorAll('[data-entity-menu]').forEach((item) => { item.hidden = true; });
+      table.querySelectorAll('[data-entity-menu-trigger]').forEach((item) => { item.setAttribute('aria-expanded', 'false'); });
+      menu.hidden = !shouldOpen;
+      trigger.setAttribute('aria-expanded', String(shouldOpen));
+    };
+
+    menu.querySelectorAll('[data-entity-menu-action]').forEach((option) => {
+      option.onclick = (event) => {
+        event.stopPropagation();
+        const row = trigger.closest('tr');
+        const target = option.dataset.entityMenuAction === 'edit'
+          ? row?.querySelector('[data-edit-id]')
+          : row?.querySelector('.mobile-action-target') || row?.querySelector('[data-delete-id], [data-archive-id], [data-unarchive-id]');
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+        target?.click();
+      };
+    });
+  });
+}
+
+function showUsuarioDetalle(usuario) {
+  if (typeof bootstrap === 'undefined') return;
+  const modal = document.createElement('div');
+  modal.className = 'modal fade';
+  modal.tabIndex = -1;
+  modal.setAttribute('aria-labelledby', 'detalleUsuarioTitulo');
+  modal.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="detalleUsuarioTitulo">Detalle del usuario</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="contenido-ficha-cliente">
+            <div class="fila-ficha-cliente"><label class="etiqueta-ficha-cliente">Nombre:</label><div class="valor-ficha-cliente">${escapeHtml(usuario.nombre || usuario.usuario || usuario.name || '—')}</div></div>
+            <div class="fila-ficha-cliente"><label class="etiqueta-ficha-cliente">Correo electrónico:</label><div class="valor-ficha-cliente">${escapeHtml(usuario.email || usuario.correo || '—')}</div></div>
+            <div class="fila-ficha-cliente"><label class="etiqueta-ficha-cliente">Rol:</label><div class="valor-ficha-cliente">${escapeHtml(usuario.rol || '—')}</div></div>
+            <div class="fila-ficha-cliente"><label class="etiqueta-ficha-cliente">Estado:</label><div class="valor-ficha-cliente">${escapeHtml(usuario.estado || 'Activo')}</div></div>
+            <div class="fila-ficha-cliente"><label class="etiqueta-ficha-cliente">Observaciones:</label><div class="valor-ficha-cliente">${escapeHtml(usuario.observacion || usuario.observaciones || '—')}</div></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('hidden.bs.modal', () => {
+    bootstrap.Modal.getInstance(modal)?.dispose();
+    modal.remove();
+  }, { once: true });
+  showAppModal(modal);
 }
 
 async function showMaterialDetail(material) {

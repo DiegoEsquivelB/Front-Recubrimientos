@@ -4314,5 +4314,298 @@ td {
   }
 }
 
+.project-mobile-menu-trigger,
+.project-mobile-menu,
+.project-mobile-action-target,
+.mobile-action-target {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) {
+    border-radius: 10px;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    position: relative;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td {
+    align-items: center;
+    border-top: 1px solid #edf2f4;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    min-width: 0;
+    padding: 9px 12px;
+    text-align: right;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:first-child {
+    background: #f7fafb;
+    border-top: 0;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    min-height: 78px;
+    padding: 10px 52px 10px 12px;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:first-child::before,
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:nth-child(3),
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:nth-child(n+5):not(:last-child) {
+    display: none;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:nth-child(2),
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:nth-child(4) {
+    align-items: flex-start;
+    display: grid;
+    gap: 4px;
+    justify-content: start;
+    text-align: left;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:nth-child(2)::before,
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:nth-child(4)::before {
+    color: #64788a;
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) td:last-child {
+    background: transparent;
+    border: 0;
+    display: block;
+    padding: 7px;
+    position: absolute;
+    right: 2px;
+    top: 2px;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-table-identity {
+    gap: 11px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-table-identity__photo {
+    align-items: center;
+    display: inline-flex;
+    flex: 0 0 58px;
+    height: 58px;
+    justify-content: center;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-table-photo {
+    border-radius: 6px;
+    flex-basis: 58px;
+    height: 58px;
+    width: 58px;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-table-identity strong {
+    font-size: 14px;
+    line-height: 1.35;
+    max-width: none;
+    overflow-wrap: anywhere;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-actions-desktop,
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-mobile-action-target {
+    display: none;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-mobile-menu-trigger {
+    align-items: center;
+    background: #b94f42;
+    border: 0;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(26, 44, 61, .2);
+    color: #fff;
+    display: inline-flex;
+    font-size: 28px;
+    font-weight: 800;
+    height: 44px;
+    justify-content: center;
+    line-height: 1;
+    padding: 0 4px 9px;
+    width: 44px;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-mobile-menu-trigger:focus-visible,
+  #tabla-clientes .mobile-entity-card__menu-trigger:focus-visible,
+  #tabla-usuarios .mobile-entity-card__menu-trigger:focus-visible {
+    outline: 3px solid #17324d;
+    outline-offset: 2px;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-mobile-menu {
+    background: #fff;
+    border: 1px solid #dbe7ec;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(25, 59, 80, .16);
+    display: block;
+    min-width: 140px;
+    padding: 5px;
+    position: absolute;
+    right: 10px;
+    top: 47px;
+    z-index: 4;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-mobile-menu[hidden] {
+    display: none;
+  }
+
+  .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-mobile-menu button {
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--ink);
+    display: block;
+    font-size: 13px;
+    min-height: 40px;
+    padding: 9px 12px;
+    text-align: left;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  #tabla-clientes tbody tr.mobile-entity-card,
+  #tabla-usuarios tbody tr.mobile-entity-card {
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    position: relative;
+  }
+
+  #tabla-clientes tbody tr.mobile-entity-card td,
+  #tabla-usuarios tbody tr.mobile-entity-card td {
+    align-items: flex-start;
+    display: grid;
+    gap: 4px;
+    justify-content: start;
+    min-width: 0;
+    text-align: left;
+  }
+
+  #tabla-clientes tbody tr.mobile-entity-card td:first-child,
+  #tabla-usuarios tbody tr.mobile-entity-card td:first-child {
+    background: #f7fafb;
+    grid-column: 1 / -1;
+    min-height: 62px;
+    padding: 16px 54px 12px 14px;
+  }
+
+  #tabla-clientes tbody tr.mobile-entity-card td:first-child::before,
+  #tabla-usuarios tbody tr.mobile-entity-card td:first-child::before {
+    display: none;
+  }
+
+  #tabla-clientes tbody tr.mobile-entity-card td:nth-child(2)::before,
+  #tabla-clientes tbody tr.mobile-entity-card td:nth-child(3)::before,
+  #tabla-usuarios tbody tr.mobile-entity-card td:nth-child(2)::before,
+  #tabla-usuarios tbody tr.mobile-entity-card td:nth-child(3)::before {
+    color: #64788a;
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  #tabla-clientes tbody tr.mobile-entity-card td:nth-child(4),
+  #tabla-usuarios tbody tr.mobile-entity-card td:nth-child(4) {
+    display: none;
+  }
+
+  #tabla-clientes tbody tr.mobile-entity-card td:last-child,
+  #tabla-usuarios tbody tr.mobile-entity-card td:last-child {
+    background: transparent;
+    border: 0;
+    display: block;
+    padding: 7px;
+    position: absolute;
+    right: 2px;
+    top: 2px;
+  }
+
+  #tabla-clientes .mobile-entity-card__title,
+  #tabla-usuarios .mobile-entity-card__title {
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.4;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  #tabla-clientes .mobile-entity-card__desktop-actions,
+  #tabla-clientes .mobile-action-target,
+  #tabla-usuarios .mobile-entity-card__desktop-actions,
+  #tabla-usuarios .mobile-action-target {
+    display: none;
+  }
+
+  #tabla-clientes .mobile-entity-card__menu-trigger,
+  #tabla-usuarios .mobile-entity-card__menu-trigger {
+    align-items: center;
+    background: #b94f42;
+    border: 0;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(26, 44, 61, .2);
+    color: #fff;
+    display: inline-flex;
+    font-size: 28px;
+    font-weight: 800;
+    height: 44px;
+    justify-content: center;
+    line-height: 1;
+    padding: 0 4px 9px;
+    width: 44px;
+  }
+
+  #tabla-clientes .mobile-entity-card__menu,
+  #tabla-usuarios .mobile-entity-card__menu {
+    background: #fff;
+    border: 1px solid #dbe7ec;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(25, 59, 80, .16);
+    display: block;
+    min-width: 140px;
+    padding: 5px;
+    position: absolute;
+    right: 10px;
+    top: 47px;
+    z-index: 4;
+  }
+
+  #tabla-clientes .mobile-entity-card__menu[hidden],
+  #tabla-usuarios .mobile-entity-card__menu[hidden] {
+    display: none;
+  }
+
+  #tabla-clientes .mobile-entity-card__menu button,
+  #tabla-usuarios .mobile-entity-card__menu button {
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--ink);
+    display: block;
+    font-size: 13px;
+    min-height: 40px;
+    padding: 9px 12px;
+    text-align: left;
+    width: 100%;
+  }
+}
+
 
 
