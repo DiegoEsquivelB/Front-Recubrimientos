@@ -600,26 +600,14 @@ function setTableSearches() {
     }
   });
 
-  const statusButtons = document.querySelectorAll('[data-project-status-shortcut]');
-  const projectTable = document.getElementById('tabla-proyectos');
-  statusButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      if (!projectTable) return;
-      projectTable.dataset.statusFilter = button.dataset.projectStatusShortcut;
-      statusButtons.forEach((statusButton) => statusButton.classList.toggle('activa', statusButton === button));
-      applyProjectFilters(projectTable);
-    });
-  });
 }
 
 function applyProjectFilters(table) {
   const search = document.querySelector(`[data-table-search="${table.id}"]`);
   const query = search?.value.trim().toLowerCase() || '';
-  const selectedStatus = table.id === 'tabla-proyectos' ? table.dataset.statusFilter || 'Todos' : 'Todos';
   table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
     const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
-    const matchesStatus = selectedStatus === 'Todos' || row.dataset.status === selectedStatus;
-    row.hidden = !matchesSearch || !matchesStatus;
+    row.hidden = !matchesSearch;
   });
   if (search) updateTableSearchCount(search, table);
 }
@@ -2627,6 +2615,8 @@ async function showProyectoDetalle(proyecto) {
   const precioCotizacionRegistrada = Number(proyecto.precio_cotizacion ?? proyecto.presupuesto ?? proyecto.costo_estimado ?? 0);
   const descripcion = proyecto.descripcion || 'Sin observaciones';
   const projectId = proyecto.id_proyecto ?? proyecto.id ?? proyecto.idProyecto ?? '';
+  const codigoProyecto = proyecto.codigo || proyecto.codigo_proyecto || (projectId ? `#${projectId}` : 'Sin código');
+  const estadoClase = /finalizado|completado/i.test(estado) ? 'project-state-badge--done' : (/proceso/i.test(estado) ? 'project-state-badge--progress' : 'project-state-badge--pending');
 
   let materiales = Array.isArray(proyecto.materiales) ? proyecto.materiales : [];
 
@@ -2649,142 +2639,67 @@ async function showProyectoDetalle(proyecto) {
   const precioCotizacion = precioCotizacionRegistrada || precioMateriales + precioManoObra + Number(proyecto.precio_herramientas || 0);
   const utilidad = precioCotizacion - costoTotalCalculado;
 
-  const materialesHtml = materiales.length
-    ? `
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Materiales:</label>
-        <div class="valor-ficha-cliente">
-          <div class="tabla-materiales-detalle">
-            <div class="tabla-materiales-detalle__header">
-              <span>Material</span>
-              <span>Cantidad</span>
-              <span>Precio</span>
-              <span>Subtotal</span>
-              <span>Detalle</span>
-            </div>
-            ${materiales.map((item) => {
-              const nombreMaterial = item.material_nombre || item.nombre || 'Material';
-              const cantidad = Math.trunc(Number(item.cantidad_calculada ?? item.cantidad ?? 0));
-              const precioUnitario = Number(item.precio_venta ?? item.precio_unitario ?? 0);
-              const subtotal = Number(item.precio_subtotal ?? item.costo_subtotal ?? 0).toFixed(2);
-              let detallePeps = [];
-              try {
-                detallePeps = typeof item.detalle_peps === 'string' ? JSON.parse(item.detalle_peps) : (item.detalle_peps || []);
-              } catch (_error) {
-                detallePeps = [];
-              }
-              const detalleTexto = detallePeps.length
-                ? detallePeps.map((lote) => `Lote #${lote.id_lote}: ${lote.cantidad} x Q ${Number(lote.costo_unitario).toFixed(2)}`).join('\n')
-                : 'No hay desglose de lote disponible para este consumo.';
-              return `
-                <div class="tabla-materiales-detalle__row">
-                  <span>${escapeHtml(nombreMaterial)}</span>
-                  <span>${cantidad}</span>
-                  <span>Q ${precioUnitario.toFixed(2)}</span>
-                  <span>Q ${subtotal}</span>
-                  <button class="boton boton-transparente boton-peps" type="button" data-internal-cost data-peps-detail="${escapeAttribute(detalleTexto)}" title="Ver detalle del lote">Detalle lote</button>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      </div>
-      <div class="fila-ficha-cliente" data-internal-cost>
-        <label class="etiqueta-ficha-cliente">Materiales:</label>
-        <div class="valor-ficha-cliente">Q ${totalMateriales.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Tipo de mano de obra:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(manoObraNombre)}</div>
-      </div>
-      <div class="fila-ficha-cliente" data-internal-cost>
-        <label class="etiqueta-ficha-cliente">Costo mano de obra interna:</label>
-        <div class="valor-ficha-cliente">Q ${costoManoObra.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Mano de obra cobrada:</label>
-        <div class="valor-ficha-cliente">Q ${precioManoObra.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente" data-internal-cost>
-        <label class="etiqueta-ficha-cliente">Costo interno total:</label>
-        <div class="valor-ficha-cliente">Q ${costoTotalCalculado.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Cotización al cliente:</label>
-        <div class="valor-ficha-cliente">Q ${precioCotizacion.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente" data-internal-cost>
-        <label class="etiqueta-ficha-cliente">Utilidad estimada:</label>
-        <div class="valor-ficha-cliente">Q ${utilidad.toFixed(2)}</div>
-      </div>
-    `
-    : `
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Materiales:</label>
-        <div class="valor-ficha-cliente">Sin materiales asignados</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Tipo de mano de obra:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(manoObraNombre)}</div>
-      </div>
-      <div class="fila-ficha-cliente" data-internal-cost>
-        <label class="etiqueta-ficha-cliente">Costo mano de obra interna:</label>
-        <div class="valor-ficha-cliente">Q ${costoManoObra.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Mano de obra cobrada:</label>
-        <div class="valor-ficha-cliente">Q ${precioManoObra.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente" data-internal-cost>
-        <label class="etiqueta-ficha-cliente">Costo interno total:</label>
-        <div class="valor-ficha-cliente">Q ${costoTotalCalculado.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Cotización al cliente:</label>
-        <div class="valor-ficha-cliente">Q ${precioCotizacion.toFixed(2)}</div>
-      </div>
-      <div class="fila-ficha-cliente" data-internal-cost>
-        <label class="etiqueta-ficha-cliente">Utilidad estimada:</label>
-        <div class="valor-ficha-cliente">Q ${utilidad.toFixed(2)}</div>
-      </div>
-    `;
+  const materialesHtml = materiales.length ? `
+    <div class="tabla-materiales-detalle">
+      <div class="tabla-materiales-detalle__header"><span>Material</span><span>Cantidad</span><span>Precio</span><span>Subtotal</span><span>Detalle</span></div>
+      ${materiales.map((item) => {
+        const nombreMaterial = item.material_nombre || item.nombre || 'Material';
+        const cantidad = Math.trunc(Number(item.cantidad_calculada ?? item.cantidad ?? 0));
+        const precioUnitario = Number(item.precio_venta ?? item.precio_unitario ?? 0);
+        const subtotal = Number(item.precio_subtotal ?? item.costo_subtotal ?? 0).toFixed(2);
+        let detallePeps = [];
+        try {
+          detallePeps = typeof item.detalle_peps === 'string' ? JSON.parse(item.detalle_peps) : (item.detalle_peps || []);
+        } catch (_error) {
+          detallePeps = [];
+        }
+        const detalleTexto = detallePeps.length
+          ? detallePeps.map((lote) => `Lote #${lote.id_lote}: ${lote.cantidad} x Q ${Number(lote.costo_unitario).toFixed(2)}`).join('\n')
+          : 'No hay desglose de lote disponible para este consumo.';
+        return `<div class="tabla-materiales-detalle__row"><span>${escapeHtml(nombreMaterial)}</span><span>${cantidad}</span><span>Q ${precioUnitario.toFixed(2)}</span><span>Q ${subtotal}</span><button class="boton boton-transparente boton-peps" type="button" data-internal-cost data-peps-detail="${escapeAttribute(detalleTexto)}" title="Ver detalle del lote">Detalle lote</button></div>`;
+      }).join('')}
+    </div>` : '<div class="rich-text-content">Sin materiales asignados.</div>';
+
+  const herramientasHtml = herramientas.length
+    ? herramientas.map((tool) => `<div class="fila-ficha-cliente"><label class="etiqueta-ficha-cliente">${escapeHtml(tool.material_nombre || 'Herramienta')}</label><div class="valor-ficha-cliente">${Number(tool.cantidad)} asignadas, ${Number(tool.pendientes)} pendientes <span data-internal-cost>· uso Q ${Number(tool.precio_uso).toFixed(2)}${Number(tool.precio_baja) ? ` · reposición Q ${Number(tool.precio_baja).toFixed(2)}` : ''}</span></div></div>`).join('')
+    : '<div class="rich-text-content">Sin herramientas asignadas.</div>';
 
   content.innerHTML = `
-    ${proyecto.imagen ? `<img class="project-detail-photo" src="${escapeAttribute(proyecto.imagen)}" alt="Foto de ${escapeAttribute(nombre)}">` : ''}
-    <div class="contenido-ficha-cliente">
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Proyecto:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(nombre)}</div>
+    <div class="detalle-material detalle-proyecto">
+      <div class="detalle-material__visual">${proyecto.imagen ? `<img class="detalle-material__image" src="${escapeAttribute(proyecto.imagen)}" alt="Foto de ${escapeAttribute(nombre)}">` : '<div class="detalle-material__image--empty">Sin imagen del proyecto</div>'}</div>
+      <div class="detalle-material__info">
+        <div class="detalle-material__eyebrow">Código de proyecto</div>
+        <h2>${escapeHtml(codigoProyecto)}</h2>
+        <h3>${escapeHtml(nombre)}</h3>
+        <span class="project-state-badge ${estadoClase}">${escapeHtml(estado)}</span>
+        <div class="detalle-material__datos">
+          <div><span>Cliente</span><strong>${escapeHtml(cliente)}</strong></div>
+          <div><span>Fecha de inicio</span><strong>${escapeHtml(fechaInicio)}</strong></div>
+          <div><span>Área</span><strong>${escapeHtml(String(area))} m²</strong></div>
+          <div><span>Tipo</span><strong>${escapeHtml(tipo)}</strong></div>
+          <div><span>Mano de obra</span><strong>${escapeHtml(manoObraNombre)}</strong></div>
+        </div>
+        <div class="detalle-material__descripcion"><h4>Descripción</h4><div class="rich-text-content">${sanitizeRichText(descripcion)}</div></div>
       </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Cliente:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(cliente)}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Estado:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(estado)}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Fecha de inicio:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(fechaInicio)}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Área:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(String(area))} m²</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Tipo:</label>
-        <div class="valor-ficha-cliente">${escapeHtml(tipo)}</div>
-      </div>
-      ${materialesHtml}
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Herramientas:</label>
-        <div class="valor-ficha-cliente">${herramientas.length ? herramientas.map((tool) => `<div>${escapeHtml(tool.material_nombre)}: ${Number(tool.cantidad)} asignadas, ${Number(tool.pendientes)} pendientes <span data-internal-cost>· uso Q ${Number(tool.precio_uso).toFixed(2)}${Number(tool.precio_baja) ? ` · reposición Q ${Number(tool.precio_baja).toFixed(2)}` : ''}</span></div>`).join('') : 'Sin herramientas asignadas'}</div>
-      </div>
-      <div class="fila-ficha-cliente">
-        <label class="etiqueta-ficha-cliente">Descripción:</label>
-        <div class="valor-ficha-cliente rich-text-content">${sanitizeRichText(descripcion)}</div>
-      </div>
+      <section class="detalle-proyecto__seccion">
+        <h4>Materiales del proyecto</h4>
+        ${materialesHtml}
+      </section>
+      <section class="detalle-proyecto__seccion">
+        <h4>Resumen de costos</h4>
+        <div class="contenido-ficha-cliente">
+          <div class="fila-ficha-cliente" data-internal-cost><label class="etiqueta-ficha-cliente">Costo de materiales</label><div class="valor-ficha-cliente">Q ${totalMateriales.toFixed(2)}</div></div>
+          <div class="fila-ficha-cliente" data-internal-cost><label class="etiqueta-ficha-cliente">Costo mano de obra interna</label><div class="valor-ficha-cliente">Q ${costoManoObra.toFixed(2)}</div></div>
+          <div class="fila-ficha-cliente"><label class="etiqueta-ficha-cliente">Mano de obra cobrada</label><div class="valor-ficha-cliente">Q ${precioManoObra.toFixed(2)}</div></div>
+          <div class="fila-ficha-cliente" data-internal-cost><label class="etiqueta-ficha-cliente">Costo interno total</label><div class="valor-ficha-cliente">Q ${costoTotalCalculado.toFixed(2)}</div></div>
+          <div class="fila-ficha-cliente"><label class="etiqueta-ficha-cliente">Cotización al cliente</label><div class="valor-ficha-cliente">Q ${precioCotizacion.toFixed(2)}</div></div>
+          <div class="fila-ficha-cliente" data-internal-cost><label class="etiqueta-ficha-cliente">Utilidad estimada</label><div class="valor-ficha-cliente">Q ${utilidad.toFixed(2)}</div></div>
+        </div>
+      </section>
+      <section class="detalle-proyecto__seccion">
+        <h4>Herramientas asignadas</h4>
+        <div class="contenido-ficha-cliente">${herramientasHtml}</div>
+      </section>
     </div>
   `;
 
@@ -4565,6 +4480,11 @@ function formatDateValue(value) {
     const isoDate = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (isoDate) {
       return `${isoDate[3]}-${isoDate[2]}-${isoDate[1]}`;
+    }
+
+    const isoDateTime = value.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoDateTime) {
+      return `${isoDateTime[3]}-${isoDateTime[2]}-${isoDateTime[1]}`;
     }
 
     const europeanDate = value.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);

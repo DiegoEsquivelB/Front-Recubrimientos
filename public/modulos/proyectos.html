@@ -96,13 +96,6 @@
                   <input type="search" placeholder="Buscar proyecto, cliente o código" data-table-search="tabla-proyectos">
                 </label>
 
-                <div class="project-status-shortcuts" role="group" aria-label="Filtrar proyectos por estado">
-                  <button type="button" class="activa" data-project-status-shortcut="Todos">Todos</button>
-                  <button type="button" data-project-status-shortcut="Pendiente">Pendientes</button>
-                  <button type="button" data-project-status-shortcut="En proceso">En proceso</button>
-                  <button type="button" data-project-status-shortcut="Finalizado">Finalizados</button>
-                </div>
-
                 <div class="pestanas-archivo" role="tablist" aria-label="Vista de proyectos">
                   <button type="button" class="pestana-archivo activa" data-archive-view="active" data-archive-resource="proyectos">Activos</button>
                   <button type="button" class="pestana-archivo" data-archive-view="archived" data-archive-resource="proyectos">Archivados</button>
@@ -150,8 +143,8 @@
 
     <div class="contenedor-alertas" aria-live="polite"></div>
 
-    <div class="modal fade" id="modalDetalleProyecto" tabindex="-1" aria-labelledby="modalDetalleProyectoLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal fade modal-detalle-proyecto" id="modalDetalleProyecto" tabindex="-1" aria-labelledby="modalDetalleProyectoLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="modalDetalleProyectoLabel">Detalle del proyecto</h5>
