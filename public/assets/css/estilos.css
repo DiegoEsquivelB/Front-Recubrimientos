@@ -2463,6 +2463,16 @@ td {
     overflow-wrap: normal;
   }
 
+  #tabla-inventario tbody tr:not(.empty-table) td:last-child {
+    align-items: center;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  #tabla-inventario tbody tr:not(.empty-table) td:last-child .badge {
+    margin-left: auto;
+  }
+
   #tabla-materiales tbody tr:not(.empty-table) td:first-child {
     align-items: center;
     background: #f7fafb;
