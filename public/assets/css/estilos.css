@@ -970,6 +970,12 @@ body::after {
   .project-view-label span { font-size: 11px; }
   .project-image-preview { align-items: center; flex-wrap: wrap; }
   .project-image-preview img { max-width: none; }
+  .pagina-proyectos .proyectos-tabla-panel .campo-busqueda {
+    flex: 0 0 42px;
+    max-width: none;
+    min-height: 42px;
+    width: 100%;
+  }
 }
 
 /* Barra superior y usuario */
@@ -2353,6 +2359,43 @@ td {
     max-width: none;
   }
 
+  #tabla-inventario tbody tr:not(.empty-table) td::before {
+    flex-basis: 32%;
+  }
+
+  #tabla-inventario tbody tr:not(.empty-table) td > * {
+    max-width: 68%;
+  }
+
+  #tabla-inventario .inventory-material-name,
+  #tabla-inventario .inventory-existence {
+    min-width: 0;
+    text-align: right;
+  }
+
+  #tabla-inventario .inventory-material-name {
+    display: grid;
+    gap: 3px;
+  }
+
+  #tabla-inventario .inventory-material-name strong {
+    overflow-wrap: anywhere;
+  }
+
+  #tabla-inventario .inventory-existence {
+    display: grid;
+    gap: 3px;
+  }
+
+  #tabla-inventario .inventory-existence > strong {
+    white-space: nowrap;
+  }
+
+  #tabla-inventario .inventory-tool-usage {
+    line-height: 1.35;
+    overflow-wrap: normal;
+  }
+
   #tabla-materiales tbody tr:not(.empty-table) td:first-child {
     align-items: center;
     background: #f7fafb;
@@ -3162,10 +3205,6 @@ td {
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(320px, .82fr) minmax(520px, 1.18fr);
-}
-
-.labor-mobile-tabs {
-  display: none;
 }
 
 .labor-modal-panel {
@@ -3992,36 +4031,6 @@ td {
 
   .labor-modal-layout {
     gap: 16px;
-  }
-
-  .labor-mobile-tabs {
-    background: #fff;
-    border: 1px solid #dfe7ef;
-    border-radius: 8px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin-bottom: 14px;
-    overflow: hidden;
-  }
-
-  .labor-mobile-tab {
-    align-items: center;
-    background: #fff;
-    border: 0;
-    color: #334861;
-    display: inline-flex;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 800;
-    gap: 8px;
-    justify-content: center;
-    min-height: 42px;
-  }
-
-  .labor-mobile-tab--active {
-    background: #fff0ee;
-    border-bottom: 2px solid #ef5f58;
-    color: #e1443f;
   }
 
   .labor-modal-panel--form {

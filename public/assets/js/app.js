@@ -4542,9 +4542,9 @@ function renderInventoryTable(table, items) {
 
     return `
       <tr>
-        <td><strong>${materialName}</strong>${code}</td>
+        <td><div class="inventory-material-name"><strong>${materialName}</strong>${code}</div></td>
         <td>${unit}</td>
-        <td>${formatInventoryNumber(stock)}${item.modo_uso === 'Reutilizable' ? `<small class="inventory-tool-usage">${formatInventoryNumber(item.disponibles)} disponibles · ${formatInventoryNumber(item.agotadas)} agotadas · ${formatInventoryNumber(item.usos_disponibles)} usos restantes</small>` : ''}</td>
+        <td><div class="inventory-existence"><strong>${formatInventoryNumber(stock)}</strong>${item.modo_uso === 'Reutilizable' ? `<small class="inventory-tool-usage">${formatInventoryNumber(item.disponibles)} disponibles · ${formatInventoryNumber(item.agotadas)} agotadas · ${formatInventoryNumber(item.usos_disponibles)} usos restantes</small>` : ''}</div></td>
         <td>${formatInventoryNumber(minimum)}</td>
         <td><span class="badge ${statusClass}">${status}</span></td>
       </tr>
