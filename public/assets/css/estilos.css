@@ -753,8 +753,8 @@ body::after {
 }
 
 .marca {
-  background: linear-gradient(180deg, #d96d5c 0 7px, #fff 7px 100%);
-  border-bottom: 1px solid #edf0f2;
+  background: #e96764;
+  border-bottom: 0;
   justify-content: center;
   margin: 0 -12px 12px;
   min-height: 160px;
@@ -762,7 +762,7 @@ body::after {
 }
 
 .logo-marca {
-  max-width: 105px;
+  max-width: 140px;
 }
 
 .etiqueta-menu {
