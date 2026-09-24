@@ -58,8 +58,27 @@
             </div>
           </div>
 
+          <section class="project-status-overview" aria-label="Resumen de proyectos por estado">
+            <article class="project-status-metric project-status-metric--pending">
+              <span class="project-status-metric__icon" aria-hidden="true">◷</span>
+              <div><strong id="proyectosPendientesCount">0</strong><span>Pendientes</span><small>Por iniciar o en espera</small></div>
+            </article>
+            <article class="project-status-metric project-status-metric--progress">
+              <span class="project-status-metric__icon" aria-hidden="true">⚙</span>
+              <div><strong id="proyectosProcesoCount">0</strong><span>En proceso</span><small>Proyectos en ejecución</small></div>
+            </article>
+            <article class="project-status-metric project-status-metric--done">
+              <span class="project-status-metric__icon" aria-hidden="true">✓</span>
+              <div><strong id="proyectosFinalizadosCount">0</strong><span>Finalizados</span><small>Proyectos completados</small></div>
+            </article>
+          </section>
+
           <div class="cuadricula-contenido">
             <article class="panel pipeline-panel proyectos-resumen-panel">
+              <div class="project-section-heading">
+                <div><h2>Pipeline de proyectos</h2><p>Visualice y gestione el estado de sus proyectos.</p></div>
+                <span class="project-view-label">☷ <span>Vista por estado</span></span>
+              </div>
               <div class="pipeline-proyectos" id="pipelineProyectos"></div>
             </article>
 
@@ -74,8 +93,15 @@
               <div class="barra-herramientas barra-herramientas-dividida">
                 <label class="campo-busqueda">
                   <span>⌕</span>
-                  <input type="search" placeholder="Buscar proyecto" data-table-search="tabla-proyectos">
+                  <input type="search" placeholder="Buscar proyecto, cliente o código" data-table-search="tabla-proyectos">
                 </label>
+
+                <div class="project-status-shortcuts" role="group" aria-label="Filtrar proyectos por estado">
+                  <button type="button" class="activa" data-project-status-shortcut="Todos">Todos</button>
+                  <button type="button" data-project-status-shortcut="Pendiente">Pendientes</button>
+                  <button type="button" data-project-status-shortcut="En proceso">En proceso</button>
+                  <button type="button" data-project-status-shortcut="Finalizado">Finalizados</button>
+                </div>
 
                 <div class="pestanas-archivo" role="tablist" aria-label="Vista de proyectos">
                   <button type="button" class="pestana-archivo activa" data-archive-view="active" data-archive-resource="proyectos">Activos</button>
@@ -85,11 +111,11 @@
                 <small class="conteo-registros" data-search-count="tabla-proyectos">0 registros encontrados</small>
 
                 <div class="barra-herramientas__actions">
-                  <select aria-label="Filtrar por estado">
-                    <option>Todos los estados</option>
-                    <option>Pendiente</option>
-                    <option>En proceso</option>
-                    <option>Finalizado</option>
+                  <select id="filtro-estado-proyecto" aria-label="Filtrar por estado" data-project-status-filter>
+                    <option value="Todos">Todos los estados</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="En proceso">En proceso</option>
+                    <option value="Finalizado">Finalizado</option>
                   </select>
                   <button type="button" class="boton boton-principal" id="btnAgregarProyecto">
                     + Crear proyecto
@@ -103,6 +129,7 @@
                     <tr>
                       <th>Proyecto</th>
                       <th>Cliente</th>
+                      <th>Código</th>
                       <th>Inicio</th>
                       <th>Largo</th>
                       <th>Altura</th>
@@ -116,7 +143,7 @@
                   </thead>
                   <tbody>
                     <tr class="empty-table">
-                      <td colspan="11">No hay proyectos registrados.</td>
+                      <td colspan="12">No hay proyectos registrados.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -209,6 +236,17 @@
                   <option>Impermeabilización</option>
                   <option>Sellado</option>
                 </select>
+              </div>
+
+              <div class="grupo-formulario grupo-formulario--full project-image-field">
+                <label for="modalProyecto-imagen">Foto del proyecto</label>
+                <input id="modalProyecto-imagen" type="file" accept="image/jpeg,image/png,image/webp" />
+                <input type="hidden" name="imagen" />
+                <div class="project-image-preview" id="modalProyecto-imagenPreview" hidden>
+                  <img id="modalProyecto-imagenVista" alt="Vista previa de la foto del proyecto" />
+                  <button type="button" class="boton boton-transparente" id="btnQuitarFotoProyecto">Quitar foto</button>
+                </div>
+                <small class="texto-suave">JPG, PNG o WebP. Máximo 5 MB.</small>
               </div>
 
               <div class="grupo-formulario grupo-formulario--full">

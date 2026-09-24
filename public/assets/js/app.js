@@ -575,17 +575,17 @@ function setTableSearches() {
   document.querySelectorAll('[data-table-search]').forEach((input) => {
     const table = document.getElementById(input.dataset.tableSearch);
     if (!table) return;
+    const applyFilters = () => applyProjectFilters(table);
     input.addEventListener('input', () => {
-      const query = input.value.trim().toLowerCase();
-      table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
-        row.hidden = !row.textContent.toLowerCase().includes(query);
-      });
-      updateTableSearchCount(input, table);
+      applyFilters();
     });
     updateTableSearchCount(input, table);
     const tbody = table.querySelector('tbody');
     if (tbody) {
-      new MutationObserver(() => updateTableSearchCount(input, table)).observe(tbody, {
+      new MutationObserver(() => {
+        applyFilters();
+        updateTableSearchCount(input, table);
+      }).observe(tbody, {
         childList: true,
         subtree: true,
         attributes: true,
@@ -593,6 +593,36 @@ function setTableSearches() {
       });
     }
   });
+
+  const statusFilter = document.querySelector('[data-project-status-filter]');
+  const statusButtons = document.querySelectorAll('[data-project-status-shortcut]');
+  const projectTable = document.getElementById('tabla-proyectos');
+  statusFilter?.addEventListener('change', () => {
+    statusButtons.forEach((button) => button.classList.toggle('activa', button.dataset.projectStatusShortcut === statusFilter.value));
+    if (projectTable) applyProjectFilters(projectTable);
+  });
+  statusButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!statusFilter || !projectTable) return;
+      statusFilter.value = button.dataset.projectStatusShortcut;
+      statusFilter.dispatchEvent(new Event('change'));
+    });
+  });
+}
+
+function applyProjectFilters(table) {
+  const search = document.querySelector(`[data-table-search="${table.id}"]`);
+  const statusFilter = table.id === 'tabla-proyectos'
+    ? document.querySelector('[data-project-status-filter]')
+    : null;
+  const query = search?.value.trim().toLowerCase() || '';
+  const selectedStatus = statusFilter?.value || 'Todos';
+  table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
+    const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
+    const matchesStatus = selectedStatus === 'Todos' || row.dataset.status === selectedStatus;
+    row.hidden = !matchesSearch || !matchesStatus;
+  });
+  if (search) updateTableSearchCount(search, table);
 }
 
 function updateTableSearchCount(input, table) {
@@ -636,7 +666,10 @@ async function loadCalculatorMaterials() {
   try {
     const response = await apiRequest('materiales');
     const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
-    select.innerHTML = '<option value="">Seleccione un material</option>' + items.map((material) => {
+    const materials = items.filter((material) =>
+      normalizeErrorText(material.categoria || material.tipo) !== 'mano de obra'
+    );
+    select.innerHTML = '<option value="">Seleccione un material</option>' + materials.map((material) => {
       const id = material.id_material ?? material.id ?? '';
       const name = material.nombre || 'Material sin nombre';
       const rendimiento = Number(material.rendimiento ?? material.rendimiento_m2_gal ?? 0);
@@ -1220,7 +1253,7 @@ function normalizeProjectPayload(payload = {}) {
     }
   }
 
-  const allowedKeys = ['id_cliente', 'id_usuario', 'usuario_id', 'nombre_proyecto', 'estado', 'fecha_inicio', 'area_m2', 'largo', 'altura', 'tipo', 'id_mano_obra', 'costo_estimado', 'presupuesto', 'costo_mano_obra', 'precio_mano_obra', 'descripcion'];
+  const allowedKeys = ['id_cliente', 'id_usuario', 'usuario_id', 'nombre_proyecto', 'estado', 'fecha_inicio', 'area_m2', 'largo', 'altura', 'tipo', 'id_mano_obra', 'costo_estimado', 'presupuesto', 'costo_mano_obra', 'precio_mano_obra', 'descripcion', 'imagen'];
 
   Object.entries(source).forEach(([key, value]) => {
     if (key === 'id' || key === 'ancho' || key === 'notas') return;
@@ -1229,14 +1262,15 @@ function normalizeProjectPayload(payload = {}) {
     if (typeof value === 'string') {
       const trimmed = value.trim();
       if (trimmed === '') {
-        if (optionalDateKeys.includes(key) || optionalTextKeys.includes(key) || key === 'costo_estimado' || key === 'presupuesto' || key === 'area_m2') {
+        if (key === 'imagen') {
+          value = null;
+        } else if (optionalDateKeys.includes(key) || optionalTextKeys.includes(key) || key === 'costo_estimado' || key === 'presupuesto' || key === 'area_m2') {
           return;
-        }
-        if (clientIdKeys.includes(key)) {
+        } else if (clientIdKeys.includes(key)) {
           return;
         }
       }
-      value = trimmed;
+      if (trimmed !== '') value = trimmed;
     }
 
     if (clientIdKeys.includes(key) && value !== '' && value !== null && value !== undefined) {
@@ -1292,6 +1326,7 @@ function normalizeProjectPayload(payload = {}) {
 async function loadDashboardData() {
   const page = window.location.pathname.split('/').pop() || 'index.html';
   if (page !== 'index.html') return;
+  if (!document.querySelector('.tarjeta-metrica')) return;
 
   try {
     const summary = await apiRequest('dashboard/summary');
@@ -1690,6 +1725,16 @@ function renderProjectPipeline(items = []) {
     groups[safeState].push(item);
   });
 
+  const counts = {
+    proyectosPendientesCount: groups.Pendiente.length,
+    proyectosProcesoCount: groups['En proceso'].length,
+    proyectosFinalizadosCount: groups.Finalizado.length
+  };
+  Object.entries(counts).forEach(([id, count]) => {
+    const target = document.getElementById(id);
+    if (target) target.textContent = String(count);
+  });
+
   const configColumns = [
     { key: 'Pendiente', label: 'Pendientes', icon: 'ico pendiente.png', theme: 'pending' },
     { key: 'En proceso', label: 'En Proceso', icon: 'ico en proceso.png', theme: 'progress' },
@@ -1709,10 +1754,13 @@ function renderProjectPipeline(items = []) {
           const code = item.codigo || `#PRY-${String(projectId || '').padStart(3, '0')}`;
           const date = formatDateValue(item.fecha_inicio || item.fechaInicio || '—');
           const currentStatus = item.estado || column.key;
+          const image = item.tiene_imagen
+            ? `<img class="pipeline-item__photo" data-project-image src="${escapeAttribute(projectImageUrl(projectId))}" alt="Foto de ${escapeAttribute(name)}" loading="lazy">`
+            : '<span class="pipeline-item__photo pipeline-item__photo--empty" aria-label="Sin foto">▧</span>';
           return `
             <article class="pipeline-item">
+              ${image}
               <div class="pipeline-item__topline">
-                <span class="pipeline-item__icon">▣</span>
                 <div class="pipeline-item__identity">
                   <strong>${escapeHtml(name)}</strong>
                   <small>${escapeHtml(client)}</small>
@@ -1748,6 +1796,18 @@ function renderProjectPipeline(items = []) {
     `;
   }).join('');
 
+  bindProjectImageFallbacks(pipeline);
+  if ((window.location.pathname.split('/').pop() || 'index.html') === 'index.html') {
+    pipeline.querySelectorAll('.pipeline-item__menu').forEach((button) => {
+      const link = document.createElement('a');
+      link.className = button.className;
+      link.href = 'modulos/proyectos.html?ver=' + encodeURIComponent(button.dataset.viewProyectoId || '');
+      link.title = 'Abrir gestión de proyectos';
+      link.setAttribute('aria-label', 'Abrir gestión de proyectos');
+      link.textContent = '⋮';
+      button.replaceWith(link);
+    });
+  }
   bindProjectPipelineStatusChanges();
   bindViewProyectoButtons(pipeline);
 }
@@ -1755,6 +1815,11 @@ function renderProjectPipeline(items = []) {
 async function loadCrudLists() {
   const page = window.location.pathname.split('/').pop() || 'index.html';
   const resources = {
+    'index.html': {
+      endpoint: 'proyectos',
+      tableId: 'tabla-proyectos',
+      emptyMessage: 'No hay proyectos registrados.'
+    },
     'clientes.html': {
       endpoint: 'clientes',
       tableId: 'tabla-clientes',
@@ -1805,7 +1870,7 @@ async function loadCrudLists() {
 
     if (!items.length) {
       renderEmptyTable(table, config.emptyMessage);
-      if (page === 'proyectos.html') {
+      if (page === 'proyectos.html' || page === 'index.html') {
         renderProjectPipeline([]);
       }
       refreshTableSearchCount(table);
@@ -1843,7 +1908,7 @@ async function loadCrudLists() {
       return;
     }
 
-    if (page === 'proyectos.html') {
+    if (page === 'proyectos.html' || page === 'index.html') {
       renderProjectPipeline(items);
 
       table.querySelector('tbody').innerHTML = items.map((item) => {
@@ -1862,10 +1927,16 @@ async function loadCrudLists() {
         const costoEmpresa = Number(item.costo_total ?? item.costo_estimado ?? 0);
         const cotizacionCliente = Number(item.precio_cotizacion ?? item.presupuesto ?? item.costo_estimado ?? 0);
         const estado = item.estado || 'Pendiente';
+        const codigo = `#PRY-${String(idValue || '').padStart(3, '0')}`;
+        const estadoClass = estado === 'En proceso' ? 'progress' : estado === 'Finalizado' ? 'done' : 'pending';
+        const image = item.tiene_imagen
+          ? `<img class="project-table-photo" data-project-image src="${escapeAttribute(projectImageUrl(idValue))}" alt="Foto de ${escapeAttribute(nombre)}" loading="lazy">`
+          : '<span class="project-table-photo project-table-photo--empty" aria-label="Sin foto">▧</span>';
         return `
-          <tr>
-            <td>${escapeHtml(nombre)}</td>
+          <tr data-status="${escapeAttribute(estado)}" data-project-id="${idValue ?? ''}">
+            <td><div class="project-table-identity">${image}<strong>${escapeHtml(nombre)}</strong></div></td>
             <td>${escapeHtml(cliente)}</td>
+            <td>${escapeHtml(codigo)}</td>
             <td>${escapeHtml(fecha)}</td>
             <td>${escapeHtml(largoDisplay)}</td>
             <td>${escapeHtml(String(altura))}</td>
@@ -1873,7 +1944,7 @@ async function loadCrudLists() {
             <td>${escapeHtml(tipo)}</td>
             <td>Q ${costoEmpresa.toFixed(2)}</td>
             <td>Q ${cotizacionCliente.toFixed(2)}</td>
-            <td>${escapeHtml(estado)}</td>
+            <td><span class="project-state-badge project-state-badge--${estadoClass}">${escapeHtml(estado)}</span></td>
             <td>
               <button class="boton boton-icono" type="button" data-view-proyecto-id="${idValue ?? ''}" data-record='${escapeAttribute(record)}' title="Ver detalle"><img src="../assets/img/ico lupa.png" alt="Ver detalle"></button>
               <button class="boton boton-icono" type="button" data-edit-id="${idValue ?? ''}" data-edit-endpoint="${config.endpoint}" data-record='${escapeAttribute(record)}' title="Editar"><img src="../assets/img/ico editar.png" alt="Editar"></button>
@@ -1886,10 +1957,47 @@ async function loadCrudLists() {
           </tr>
         `;
       }).join('');
-      bindViewProyectoButtons(table);
-      bindEditButtons(table);
-      bindArchiveButtons(table);
-      bindUnarchiveButtons(table);
+      if (page === 'index.html') {
+        table.querySelectorAll('tbody tr[data-project-id]').forEach((row) => {
+          const projectId = encodeURIComponent(row.dataset.projectId);
+          const actions = [
+            ['Ver detalle', 'ver', 'ico lupa.png'],
+            ['Editar', 'editar', 'ico editar.png']
+          ].map(([label, action, icon]) => {
+            const link = document.createElement('a');
+            link.className = 'boton boton-icono';
+            link.href = `modulos/proyectos.html?${action}=${projectId}`;
+            link.title = label;
+            link.setAttribute('aria-label', label);
+            const image = document.createElement('img');
+            image.src = `assets/img/${icon}`;
+            image.alt = '';
+            link.appendChild(image);
+            return link;
+          });
+          row.lastElementChild.replaceChildren(...actions);
+        });
+      }
+      applyProjectFilters(table);
+      bindProjectImageFallbacks(table);
+      if (page === 'proyectos.html') {
+        bindViewProyectoButtons(table);
+        bindEditButtons(table);
+        bindArchiveButtons(table);
+        bindUnarchiveButtons(table);
+        const params = new URLSearchParams(window.location.search);
+        const projectId = params.get('ver') || params.get('editar');
+        if (projectId) {
+          try {
+            const project = await apiRequest(`proyectos/${projectId}`);
+            if (params.has('editar')) await openProyectoModal(project, projectId);
+            else await showProyectoDetalle(project);
+            window.history.replaceState({}, '', window.location.pathname);
+          } catch (error) {
+            showToast(error.message || 'No se pudo abrir el proyecto.', 'error');
+          }
+        }
+      }
       return;
     }
 
@@ -2472,10 +2580,32 @@ async function showMaterialDetail(material) {
 
 function bindViewProyectoButtons(table) {
   table.querySelectorAll('[data-view-proyecto-id]').forEach((boton) => {
-    boton.onclick = () => {
+    boton.onclick = async () => {
       const record = parseRecordData(boton.dataset.record);
-      if (!record) return;
-      showProyectoDetalle(record);
+      const projectId = boton.dataset.viewProyectoId;
+      try {
+        const project = projectId ? await apiRequest(`proyectos/${projectId}`) : record;
+        if (project) await showProyectoDetalle(project);
+      } catch (error) {
+        showToast(error.message || 'No se pudo cargar el proyecto.', 'error');
+      }
+    };
+  });
+}
+
+function projectImageUrl(projectId) {
+  const baseUrl = (window.API_CONFIG && window.API_CONFIG.baseUrl) || API_CONFIG.baseUrl;
+  return baseUrl.replace(/\/$/, '') + '/proyectos/' + encodeURIComponent(String(projectId)) + '/imagen';
+}
+
+function bindProjectImageFallbacks(container) {
+  container.querySelectorAll('[data-project-image]').forEach((image) => {
+    image.onerror = () => {
+      const placeholder = document.createElement('span');
+      placeholder.className = image.className + ' project-image-empty';
+      placeholder.textContent = '▧';
+      placeholder.setAttribute('aria-label', 'Sin foto');
+      image.replaceWith(placeholder);
     };
   });
 }
@@ -2626,6 +2756,7 @@ async function showProyectoDetalle(proyecto) {
     `;
 
   content.innerHTML = `
+    ${proyecto.imagen ? `<img class="project-detail-photo" src="${escapeAttribute(proyecto.imagen)}" alt="Foto de ${escapeAttribute(nombre)}">` : ''}
     <div class="contenido-ficha-cliente">
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Proyecto:</label>
@@ -3242,7 +3373,7 @@ async function loadMaterialCategories(selectedValue = '') {
 
     if (categorySelect) {
       categorySelect.innerHTML = '<option value="">Nueva categoría</option>' + categories
-        .map((category) => `<option value="${category.id}" data-nombre="${escapeAttribute(category.nombre || '')}" data-prefijo="${escapeAttribute(String(category.prefijo_codigo || ''))}">${category.nombre}</option>`)
+        .map((category) => `<option value="${category.id}" data-nombre="${escapeAttribute(category.nombre || '')}" data-prefijo="${escapeAttribute(String(category.prefijo_codigo || ''))}">${category.nombre}${normalizeErrorText(category.nombre) === 'mano de obra' ? ' (del sistema)' : ''}</option>`)
         .join('');
     }
 
@@ -3286,13 +3417,21 @@ async function openMaterialCategoriesModal() {
   form.reset();
   await loadMaterialCategories();
 
+  const syncCategoryLock = () => {
+    const isSystemCategory = normalizeErrorText(select.selectedOptions[0]?.dataset.nombre || '') === 'mano de obra';
+    input.disabled = isSystemCategory;
+    prefixInput.disabled = isSystemCategory;
+    btnGuardar.disabled = isSystemCategory;
+    btnEliminar.disabled = !select.value || isSystemCategory;
+  };
+
   select.onchange = () => {
     const selectedOption = select.selectedOptions[0];
     input.value = selectedOption && selectedOption.dataset.nombre ? selectedOption.dataset.nombre : '';
     prefixInput.value = selectedOption && selectedOption.dataset.prefijo ? selectedOption.dataset.prefijo : '';
-    btnEliminar.disabled = !select.value;
+    syncCategoryLock();
   };
-  btnEliminar.disabled = true;
+  syncCategoryLock();
 
   btnGuardar.onclick = async () => {
     try {
@@ -3566,11 +3705,12 @@ function setupResponsiveTables() {
 
 async function setupProyectoModal() {
   const button = document.getElementById('btnAgregarProyecto');
-  if (!button || typeof bootstrap === 'undefined') return;
-
-  button.addEventListener('click', () => {
-    openProyectoModal();
-  });
+  if (button && typeof bootstrap !== 'undefined') {
+    button.addEventListener('click', () => openProyectoModal());
+  }
+  if (new URLSearchParams(window.location.search).get('crear') === '1') {
+    await openProyectoModal();
+  }
 }
 
 function bindProjectAreaCalculation(form) {
@@ -3668,6 +3808,43 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
   form.reset();
   setRichTextValue('modalProyecto-descripcion');
   form.querySelector('input[name="id"]').value = id || '';
+  const projectImageInput = form.querySelector('#modalProyecto-imagen');
+  const projectImageValue = form.querySelector('input[name="imagen"]');
+  const projectImagePreview = form.querySelector('#modalProyecto-imagenPreview');
+  const projectImage = form.querySelector('#modalProyecto-imagenVista');
+  const removeProjectImage = form.querySelector('#btnQuitarFotoProyecto');
+  const setProjectImagePreview = (source) => {
+    if (projectImage) projectImage.src = source || '';
+    if (projectImagePreview) projectImagePreview.hidden = !source;
+  };
+  if (projectImageInput) projectImageInput.value = '';
+  if (projectImageValue) projectImageValue.value = '';
+  setProjectImagePreview('');
+  if (projectImageInput) {
+    projectImageInput.onchange = () => {
+      const file = projectImageInput.files?.[0];
+      if (!file) return;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > MATERIAL_IMAGE_MAX_MB * 1024 * 1024) {
+        projectImageInput.value = '';
+        showToast(`Seleccione una foto JPG, PNG o WebP de máximo ${MATERIAL_IMAGE_MAX_MB} MB.`, 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const imageData = String(reader.result || '');
+        if (projectImageValue) projectImageValue.value = imageData;
+        setProjectImagePreview(imageData);
+      };
+      reader.readAsDataURL(file);
+    };
+  }
+  if (removeProjectImage) {
+    removeProjectImage.onclick = () => {
+      if (projectImageInput) projectImageInput.value = '';
+      if (projectImageValue) projectImageValue.value = '';
+      setProjectImagePreview('');
+    };
+  }
   form.dataset.projectUserId = proyecto ? (proyecto.id_usuario ?? proyecto.usuario_id ?? proyecto.idUsuario ?? proyecto.usuarioId ?? '') : '';
   clearFormErrors();
 
@@ -3728,6 +3905,8 @@ async function openProyectoModal(proyecto = null, id = '', endpoint = 'proyectos
     form.querySelector('input[name="altura"]').value = proyecto.altura ?? '';
     form.querySelector('select[name="tipo"]').value = proyecto.tipo || '';
     form.querySelector('select[name="id_mano_obra"]').value = proyecto.id_mano_obra ?? '';
+    if (projectImageValue) projectImageValue.value = proyecto.imagen || '';
+    setProjectImagePreview(proyecto.imagen || '');
     const presupuestoInput = form.querySelector('input[name="presupuesto"]');
     if (presupuestoInput) {
       presupuestoInput.value = proyecto.presupuesto ?? proyecto.costo_estimado ?? '';
