@@ -6,7 +6,7 @@
   <title>Panel principal | Recubrimientos Diego S.A</title>
   <link rel="stylesheet" href="assets/css/estilos.css">
 </head>
-<body class="pagina-proyectos pagina-panel">
+<body>
   <div class="app-shell">
     <aside class="barra-lateral" data-barra-lateral>
       <a class="marca" href="index.html" aria-label="Recubrimientos Diego S.A">
@@ -38,72 +38,20 @@
           <div>
             <p class="etiqueta-seccion">Resumen general</p>
             <h1>Panel principal</h1>
-            <p class="texto-suave">Estado y avance de los proyectos registrados.</p>
+            <p class="texto-suave">Visualice el estado actual de la operación.</p>
           </div>
         </div>
 
-        <section class="project-status-overview" aria-label="Resumen de proyectos por estado">
-          <article class="project-status-metric project-status-metric--pending">
-            <span class="project-status-metric__icon" aria-hidden="true">◷</span>
-            <div><strong id="proyectosPendientesCount">0</strong><span>Pendientes</span><small>Por iniciar o en espera</small></div>
-          </article>
-          <article class="project-status-metric project-status-metric--progress">
-            <span class="project-status-metric__icon" aria-hidden="true">⚙</span>
-            <div><strong id="proyectosProcesoCount">0</strong><span>En proceso</span><small>Proyectos en ejecución</small></div>
-          </article>
-          <article class="project-status-metric project-status-metric--done">
-            <span class="project-status-metric__icon" aria-hidden="true">✓</span>
-            <div><strong id="proyectosFinalizadosCount">0</strong><span>Finalizados</span><small>Proyectos completados</small></div>
-          </article>
+        <section class="cuadricula-metricas" aria-label="Indicadores principales">
+          <article class="tarjeta-metrica"><span class="tarjeta-metrica__icon tarjeta-metrica__icon--blue">♙</span><div><p>Clientes activos</p><strong>0</strong><small>Sin registros aún</small></div></article>
+          <article class="tarjeta-metrica"><span class="tarjeta-metrica__icon icono-metrica-naranja">▣</span><div><p>Proyectos en proceso</p><strong>0</strong><small>Sin registros aún</small></div></article>
+          <article class="tarjeta-metrica"><span class="tarjeta-metrica__icon tarjeta-metrica__icon--green">▤</span><div><p>Materiales disponibles</p><strong>0</strong><small>Sin registros aún</small></div></article>
+          <article class="tarjeta-metrica"><span class="tarjeta-metrica__icon tarjeta-metrica__icon--red">!</span><div><p>Alertas de inventario</p><strong>0</strong><small>Todo en orden</small></div></article>
         </section>
-
-        <article class="panel pipeline-panel proyectos-resumen-panel">
-          <div class="project-section-heading">
-            <div><h2>Pipeline de proyectos</h2><p>Visualice y gestione el estado de sus proyectos.</p></div>
-            <span class="project-view-label">☷ <span>Vista por estado</span></span>
-          </div>
-          <div class="pipeline-proyectos" id="pipelineProyectos"></div>
-        </article>
-
-        <article class="panel proyectos-tabla-panel dashboard-projects-table">
-          <div class="encabezado-panel">
-            <div><h2>Proyectos registrados</h2><p>Controle el avance de todos los proyectos.</p></div>
-          </div>
-          <div class="barra-herramientas barra-herramientas-dividida">
-            <label class="campo-busqueda">
-              <span>⌕</span>
-              <input type="search" placeholder="Buscar proyecto, cliente o código" data-table-search="tabla-proyectos">
-            </label>
-            <div class="project-status-shortcuts" role="group" aria-label="Filtrar proyectos por estado">
-              <button type="button" class="activa" data-project-status-shortcut="Todos">Todos</button>
-              <button type="button" data-project-status-shortcut="Pendiente">Pendientes</button>
-              <button type="button" data-project-status-shortcut="En proceso">En proceso</button>
-              <button type="button" data-project-status-shortcut="Finalizado">Finalizados</button>
-            </div>
-            <small class="conteo-registros" data-search-count="tabla-proyectos">0 registros encontrados</small>
-            <div class="barra-herramientas__actions">
-              <select aria-label="Filtrar por estado" data-project-status-filter>
-                <option value="Todos">Todos los estados</option>
-                <option value="Pendiente">Pendiente</option>
-                <option value="En proceso">En proceso</option>
-                <option value="Finalizado">Finalizado</option>
-              </select>
-              <a class="boton boton-principal" href="modulos/proyectos.html?crear=1">+ Crear proyecto</a>
-            </div>
-          </div>
-          <div class="contenedor-tabla">
-            <table id="tabla-proyectos">
-              <thead>
-                <tr>
-                  <th>Proyecto</th><th>Cliente</th><th>Código</th><th>Inicio</th>
-                  <th>Largo</th><th>Altura</th><th>Área</th><th>Tipo</th>
-                  <th>Costo empresa</th><th>Cotización cliente</th><th>Estado</th><th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody><tr class="empty-table"><td colspan="12">No hay proyectos registrados.</td></tr></tbody>
-            </table>
-          </div>
-        </article>
+        <section class="cuadricula-contenido cuadricula-contenido--two">
+          <article class="panel"><div class="encabezado-panel"><div><h2>Proyectos recientes</h2><p>Últimos proyectos registrados.</p></div><a href="modulos/proyectos.html">Ver todos</a></div><div id="proyectos-recientes-container"></div></article>
+          <article class="panel"><div class="encabezado-panel"><div><h2>Acciones rápidas</h2><p>Accesos directos a las tareas frecuentes.</p></div></div><div class="acciones-rapidas"><a href="modulos/clientes.html">♙ <span><strong>Registrar cliente</strong><small>Agregue un nuevo cliente</small></span></a><a href="modulos/inventario.html">▤ <span><strong>Movimiento de inventario</strong><small>Registre entradas o salidas</small></span></a><a href="modulos/calculo-materiales.html">◈ <span><strong>Calcular materiales</strong><small>Estime el consumo de un proyecto</small></span></a><a href="modulos/reportes.html">▥ <span><strong>Generar reporte</strong><small>Consulte la información del negocio</small></span></a></div></article>
+        </section>
       </section>
     </main>
   </div>
