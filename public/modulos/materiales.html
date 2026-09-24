@@ -134,7 +134,7 @@
                       <th>Categoría</th>
                       <th>Unidad</th>
                       <th>Rendimiento</th>
-                      <th>Costo</th>
+                      <th data-internal-cost>Costo</th>
                       <th>Stock mínimo</th>
                       <th>Acciones</th>
                     </tr>
@@ -292,7 +292,7 @@
                 />
               </div>
 
-              <div class="grupo-formulario">
+              <div class="grupo-formulario" data-internal-cost>
                 <label for="modalMaterial-costo">Costo unitario (Q) *</label>
                 <input
                   id="modalMaterial-costo"
@@ -323,7 +323,7 @@
                 <input id="modalMaterial-usosEstimados" name="usos_estimados" type="number" min="1" step="1" value="1" />
               </div>
 
-              <div class="grupo-formulario" data-reusable-field hidden>
+              <div class="grupo-formulario" data-reusable-field data-internal-cost hidden>
                 <label for="modalMaterial-precioUso">Cobro automático por uso (Q)</label>
                 <input id="modalMaterial-precioUso" name="precio_uso" type="number" min="0" step="0.01" value="0" readonly />
               </div>
@@ -459,7 +459,7 @@
                     </div>
                     <small class="error-formulario" id="error-mano-obra-nombre" style="display: none"></small>
                   </div>
-                  <div class="grupo-formulario">
+                  <div class="grupo-formulario" data-internal-cost>
                     <label for="manoObra-costo">Costo empresa por m² (Q) *</label>
                     <div class="labor-field">
                       <input id="manoObra-costo" name="costo" type="number" min="0" step="0.01" placeholder="0.00" required />
@@ -500,7 +500,7 @@
                       <tr>
                         <th>Código</th>
                         <th>Tipo de trabajo</th>
-                        <th>Costo empresa</th>
+                        <th data-internal-cost>Costo empresa</th>
                         <th>Costo cliente</th>
                         <th>Descripción</th>
                         <th>Acciones</th>

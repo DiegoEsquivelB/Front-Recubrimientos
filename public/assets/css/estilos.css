@@ -743,6 +743,10 @@ body::after {
   display: none;
 }
 
+body.rol-operador [data-internal-cost] {
+  display: none !important;
+}
+
 .barra-lateral {
   background: #fff;
   border-right: 1px solid #e3e8ed;

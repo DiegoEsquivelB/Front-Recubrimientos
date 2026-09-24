@@ -300,6 +300,12 @@ async function applyRoleAccess() {
   const applyAccess = (user) => {
     if (!user) return;
     const isAdministrator = String(user.rol || '').trim().toLowerCase() === 'administrador';
+    document.body.classList.toggle('rol-administrador', isAdministrator);
+    document.body.classList.toggle('rol-operador', !isAdministrator);
+    document.querySelectorAll('[data-internal-cost] input, [data-internal-cost] select, [data-internal-cost] textarea').forEach((field) => {
+      field.disabled = !isAdministrator;
+      if (!isAdministrator) field.required = false;
+    });
     document.querySelectorAll('.enlace-menu, .acciones-rapidas a').forEach((link) => {
       const href = link.getAttribute('href') || '';
       if (!isAdministrator && /(?:^|\/)usuarios\.html(?:$|#|\?)/i.test(href) && !link.dataset.accessChecked) {
@@ -594,29 +600,22 @@ function setTableSearches() {
     }
   });
 
-  const statusFilter = document.querySelector('[data-project-status-filter]');
   const statusButtons = document.querySelectorAll('[data-project-status-shortcut]');
   const projectTable = document.getElementById('tabla-proyectos');
-  statusFilter?.addEventListener('change', () => {
-    statusButtons.forEach((button) => button.classList.toggle('activa', button.dataset.projectStatusShortcut === statusFilter.value));
-    if (projectTable) applyProjectFilters(projectTable);
-  });
   statusButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      if (!statusFilter || !projectTable) return;
-      statusFilter.value = button.dataset.projectStatusShortcut;
-      statusFilter.dispatchEvent(new Event('change'));
+      if (!projectTable) return;
+      projectTable.dataset.statusFilter = button.dataset.projectStatusShortcut;
+      statusButtons.forEach((statusButton) => statusButton.classList.toggle('activa', statusButton === button));
+      applyProjectFilters(projectTable);
     });
   });
 }
 
 function applyProjectFilters(table) {
   const search = document.querySelector(`[data-table-search="${table.id}"]`);
-  const statusFilter = table.id === 'tabla-proyectos'
-    ? document.querySelector('[data-project-status-filter]')
-    : null;
   const query = search?.value.trim().toLowerCase() || '';
-  const selectedStatus = statusFilter?.value || 'Todos';
+  const selectedStatus = table.id === 'tabla-proyectos' ? table.dataset.statusFilter || 'Todos' : 'Todos';
   table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
     const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
     const matchesStatus = selectedStatus === 'Todos' || row.dataset.status === selectedStatus;
@@ -701,7 +700,7 @@ function setCalculator() {
     const materialName = materialSelect && materialSelect.selectedIndex > 0
       ? materialSelect.options[materialSelect.selectedIndex].text
       : (data.get('material') || 'Material');
-    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${materialName}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
+    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${materialName}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div data-internal-cost><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
     output.querySelector('[data-save-calculation]').addEventListener('click', () => showToast('Cálculo preparado y listo para guardar mediante la API.', 'success'));
   });
 }
@@ -1502,7 +1501,6 @@ function updateProjectMaterialEstimate(form) {
   if (!select.value || option?.dataset.pintura !== 'true' || !Number.isFinite(area) || area <= 0) {
     estimate.hidden = true;
     estimate.textContent = '';
-    if (quantityInput.dataset.manualEstimate !== 'true') quantityInput.value = '';
     return;
   }
 
@@ -1510,7 +1508,6 @@ function updateProjectMaterialEstimate(form) {
   if (!Number.isFinite(coverage) || coverage <= 0) {
     estimate.textContent = 'Esta pintura no tiene rendimiento registrado; la cantidad debe ingresarse manualmente.';
     estimate.classList.add('estimacion-material-proyecto--insuficiente');
-    if (quantityInput.dataset.manualEstimate !== 'true') quantityInput.value = '';
     return;
   }
 
@@ -1529,14 +1526,13 @@ function updateProjectMaterialEstimate(form) {
 
   estimate.classList.toggle('estimacion-material-proyecto--insuficiente', shortage > 0);
   estimate.textContent = `Para 1 mano: ${area.toFixed(2)} m² ÷ ${coverage.toFixed(2)} m²/${unit.toLowerCase()} → ${needed} ${unitLabel}. ${assigned ? `Ya asignadas: ${assigned}. Por agregar: ${remaining}. ` : ''}Disponible: ${available}.${shortage ? ` Faltan ${shortage}.` : ''}`;
-  if (quantityInput.dataset.manualEstimate !== 'true') {
-    quantityInput.value = remaining > 0 ? String(remaining) : '';
-  }
 }
 
-function cargarOpcionesMaterialesProyecto(select) {
+async function cargarOpcionesMaterialesProyecto(select) {
   if (!select) return;
 
+  const currentUser = await getCurrentUser() || {};
+  const isAdministrator = String(currentUser.rol || '').trim().toLowerCase() === 'administrador';
   const laborSelect = document.getElementById('proyecto-mano-obra-select');
   select.innerHTML = '<option value="">Seleccione un material</option>';
 
@@ -1585,7 +1581,11 @@ function cargarOpcionesMaterialesProyecto(select) {
           const name = material.nombre || 'Trabajo de mano de obra';
           const companyPrice = Number(material.precio_unitario ?? material.costo ?? 0);
           const clientPrice = Number(material.precio_venta ?? companyPrice);
-          return `<option value="${escapeAttribute(id)}" data-price-m2="${escapeAttribute(String(companyPrice))}">${escapeHtml(name)} - Empresa Q ${companyPrice.toFixed(2)}/m² · Cliente Q ${clientPrice.toFixed(2)}/m²</option>`;
+      const label = isAdministrator
+        ? `${name} - Empresa Q ${companyPrice.toFixed(2)}/m² · Cliente Q ${clientPrice.toFixed(2)}/m²`
+        : `${name} - Q ${clientPrice.toFixed(2)}/m²`;
+      const internalPrice = isAdministrator ? ` data-price-m2="${escapeAttribute(String(companyPrice))}"` : '';
+      return `<option value="${escapeAttribute(id)}"${internalPrice}>${escapeHtml(label)}</option>`;
         }).join('');
       }
     })
@@ -1605,14 +1605,10 @@ async function bindProjectMaterialButtons(form) {
   ensureProjectMaterialTable(list);
   await cargarOpcionesMaterialesProyecto(select);
 
-  delete cantidadInput.dataset.manualEstimate;
   if (form.dataset.materialEstimateBound !== 'true') {
     select.addEventListener('change', () => {
-      delete cantidadInput.dataset.manualEstimate;
+      cantidadInput.value = '';
       updateProjectMaterialEstimate(form);
-    });
-    cantidadInput.addEventListener('input', () => {
-      cantidadInput.dataset.manualEstimate = 'true';
     });
     form.querySelector('#modalProyecto-area')?.addEventListener('input', () => updateProjectMaterialEstimate(form));
     form.dataset.materialEstimateBound = 'true';
@@ -1649,7 +1645,6 @@ async function bindProjectMaterialButtons(form) {
       existingItem.querySelector('.material-proyecto-subtotal').textContent = `Q ${(newCantidad * precio).toFixed(2)}`;
       cantidadInput.value = '';
       select.selectedIndex = 0;
-      delete cantidadInput.dataset.manualEstimate;
       updateProjectMaterialEstimate(form);
       return;
     }
@@ -1674,7 +1669,6 @@ async function bindProjectMaterialButtons(form) {
     body.appendChild(row);
     cantidadInput.value = '';
     select.selectedIndex = 0;
-    delete cantidadInput.dataset.manualEstimate;
     updateProjectMaterialEstimate(form);
   };
 }
@@ -1942,7 +1936,7 @@ async function loadCrudLists() {
             <td>${escapeHtml(String(altura))}</td>
             <td>${escapeHtml(String(Number(area) > 0 ? Number(area).toFixed(2) : '—'))} ${Number(area) > 0 ? 'm²' : ''}</td>
             <td>${escapeHtml(tipo)}</td>
-            <td>Q ${costoEmpresa.toFixed(2)}</td>
+            <td data-internal-cost>Q ${costoEmpresa.toFixed(2)}</td>
             <td>Q ${cotizacionCliente.toFixed(2)}</td>
             <td><span class="project-state-badge project-state-badge--${estadoClass}">${escapeHtml(estado)}</span></td>
             <td>
@@ -2038,7 +2032,7 @@ async function loadCrudLists() {
             <td>${categoria}</td>
             <td>${unidad}</td>
             <td>${rendimiento !== '—' ? `${Number(rendimiento).toFixed(2)} m²` : '—'}</td>
-            <td>${costo}</td>
+            <td data-internal-cost>${costo}</td>
             <td>${stockMinimo}</td>
             <td>
               <button class="material-menu-trigger" type="button" data-material-menu-trigger aria-label="Más opciones" aria-expanded="false">⋮</button>
@@ -2075,7 +2069,7 @@ async function loadCrudLists() {
             <tr data-labor-search="${escapeAttribute(normalizeErrorText(searchText))}">
               <td>${escapeHtml(codigo)}</td>
               <td>${escapeHtml(nombre)}</td>
-              <td>Q ${costoEmpresa.toFixed(2)}</td>
+              <td data-internal-cost>Q ${costoEmpresa.toFixed(2)}</td>
               <td>Q ${costoCliente.toFixed(2)}</td>
               <td>${escapeHtml(descripcion)}</td>
               <td>
@@ -2106,7 +2100,7 @@ async function loadCrudLists() {
               <div>
                 <strong>${escapeHtml(codigo)}</strong>
                 <span>${escapeHtml(nombre)}</span>
-                <small>Q ${costoEmpresa.toFixed(2)} &nbsp; | &nbsp; Q ${costoCliente.toFixed(2)}</small>
+                <small><span data-internal-cost>Q ${costoEmpresa.toFixed(2)} &nbsp; | &nbsp;</span>Q ${costoCliente.toFixed(2)}</small>
               </div>
               <div class="labor-card__actions">
                 ${mostrarMaterialesArchivados
@@ -2557,13 +2551,13 @@ async function showMaterialDetail(material) {
         <div><span>Código RGB/HEX</span><strong class="detalle-material__color"><i style="background-color: ${escapeAttribute(material.codigo_color || '#ffffff')}"></i>${escapeHtml(material.codigo_color ? formatColorCode(material.codigo_color) : '—')}</strong></div>
         <div><span>Unidad</span><strong>${escapeHtml(material.unidad || material.unidad_medida || '—')}</strong></div>
         <div><span>Rendimiento</span><strong>${escapeHtml(String(rendimiento))} m²</strong></div>
-        <div><span>Costo unitario</span><strong>${costo === undefined || costo === null ? '—' : `Q ${Number(costo).toFixed(2)}`}</strong></div>
+        <div data-internal-cost><span>Costo unitario</span><strong>${costo === undefined || costo === null ? '—' : `Q ${Number(costo).toFixed(2)}`}</strong></div>
         ${material.modo_uso === 'Reutilizable' ? `
           <div><span>Usos iniciales por unidad</span><strong>${Number(material.usos_estimados || 1)}</strong></div>
           <div><span>Usos restantes (todas las unidades)</span><strong>${toolAvailability ? Number(toolAvailability.usos_disponibles) : '—'}</strong></div>
           <div><span>Unidades disponibles</span><strong>${toolAvailability ? Number(toolAvailability.disponibles) : '—'}</strong></div>
           <div><span>Unidades agotadas</span><strong>${toolAvailability ? Number(toolAvailability.agotadas) : '—'}</strong></div>
-          <div><span>Cobro por uso</span><strong>Q ${Number(material.precio_uso || 0).toFixed(2)}</strong></div>
+          <div data-internal-cost><span>Cobro por uso</span><strong>Q ${Number(material.precio_uso || 0).toFixed(2)}</strong></div>
         ` : ''}
         <div><span>Stock mínimo</span><strong>${escapeHtml(String(material.stock_minimo ?? '0'))}</strong></div>
       </div>
@@ -2688,14 +2682,14 @@ async function showProyectoDetalle(proyecto) {
                   <span>${cantidad}</span>
                   <span>Q ${precioUnitario.toFixed(2)}</span>
                   <span>Q ${subtotal}</span>
-                  <button class="boton boton-transparente boton-peps" type="button" data-peps-detail="${escapeAttribute(detalleTexto)}" title="Ver detalle del lote">Detalle lote</button>
+                  <button class="boton boton-transparente boton-peps" type="button" data-internal-cost data-peps-detail="${escapeAttribute(detalleTexto)}" title="Ver detalle del lote">Detalle lote</button>
                 </div>
               `;
             }).join('')}
           </div>
         </div>
       </div>
-      <div class="fila-ficha-cliente">
+      <div class="fila-ficha-cliente" data-internal-cost>
         <label class="etiqueta-ficha-cliente">Materiales:</label>
         <div class="valor-ficha-cliente">Q ${totalMateriales.toFixed(2)}</div>
       </div>
@@ -2703,7 +2697,7 @@ async function showProyectoDetalle(proyecto) {
         <label class="etiqueta-ficha-cliente">Tipo de mano de obra:</label>
         <div class="valor-ficha-cliente">${escapeHtml(manoObraNombre)}</div>
       </div>
-      <div class="fila-ficha-cliente">
+      <div class="fila-ficha-cliente" data-internal-cost>
         <label class="etiqueta-ficha-cliente">Costo mano de obra interna:</label>
         <div class="valor-ficha-cliente">Q ${costoManoObra.toFixed(2)}</div>
       </div>
@@ -2711,7 +2705,7 @@ async function showProyectoDetalle(proyecto) {
         <label class="etiqueta-ficha-cliente">Mano de obra cobrada:</label>
         <div class="valor-ficha-cliente">Q ${precioManoObra.toFixed(2)}</div>
       </div>
-      <div class="fila-ficha-cliente">
+      <div class="fila-ficha-cliente" data-internal-cost>
         <label class="etiqueta-ficha-cliente">Costo interno total:</label>
         <div class="valor-ficha-cliente">Q ${costoTotalCalculado.toFixed(2)}</div>
       </div>
@@ -2719,7 +2713,7 @@ async function showProyectoDetalle(proyecto) {
         <label class="etiqueta-ficha-cliente">Cotización al cliente:</label>
         <div class="valor-ficha-cliente">Q ${precioCotizacion.toFixed(2)}</div>
       </div>
-      <div class="fila-ficha-cliente">
+      <div class="fila-ficha-cliente" data-internal-cost>
         <label class="etiqueta-ficha-cliente">Utilidad estimada:</label>
         <div class="valor-ficha-cliente">Q ${utilidad.toFixed(2)}</div>
       </div>
@@ -2733,7 +2727,7 @@ async function showProyectoDetalle(proyecto) {
         <label class="etiqueta-ficha-cliente">Tipo de mano de obra:</label>
         <div class="valor-ficha-cliente">${escapeHtml(manoObraNombre)}</div>
       </div>
-      <div class="fila-ficha-cliente">
+      <div class="fila-ficha-cliente" data-internal-cost>
         <label class="etiqueta-ficha-cliente">Costo mano de obra interna:</label>
         <div class="valor-ficha-cliente">Q ${costoManoObra.toFixed(2)}</div>
       </div>
@@ -2741,7 +2735,7 @@ async function showProyectoDetalle(proyecto) {
         <label class="etiqueta-ficha-cliente">Mano de obra cobrada:</label>
         <div class="valor-ficha-cliente">Q ${precioManoObra.toFixed(2)}</div>
       </div>
-      <div class="fila-ficha-cliente">
+      <div class="fila-ficha-cliente" data-internal-cost>
         <label class="etiqueta-ficha-cliente">Costo interno total:</label>
         <div class="valor-ficha-cliente">Q ${costoTotalCalculado.toFixed(2)}</div>
       </div>
@@ -2749,7 +2743,7 @@ async function showProyectoDetalle(proyecto) {
         <label class="etiqueta-ficha-cliente">Cotización al cliente:</label>
         <div class="valor-ficha-cliente">Q ${precioCotizacion.toFixed(2)}</div>
       </div>
-      <div class="fila-ficha-cliente">
+      <div class="fila-ficha-cliente" data-internal-cost>
         <label class="etiqueta-ficha-cliente">Utilidad estimada:</label>
         <div class="valor-ficha-cliente">Q ${utilidad.toFixed(2)}</div>
       </div>
@@ -2785,7 +2779,7 @@ async function showProyectoDetalle(proyecto) {
       ${materialesHtml}
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Herramientas:</label>
-        <div class="valor-ficha-cliente">${herramientas.length ? herramientas.map((tool) => `<div>${escapeHtml(tool.material_nombre)}: ${Number(tool.cantidad)} asignadas, ${Number(tool.pendientes)} pendientes · uso Q ${Number(tool.precio_uso).toFixed(2)}${Number(tool.precio_baja) ? ` · reposición Q ${Number(tool.precio_baja).toFixed(2)}` : ''}</div>`).join('') : 'Sin herramientas asignadas'}</div>
+        <div class="valor-ficha-cliente">${herramientas.length ? herramientas.map((tool) => `<div>${escapeHtml(tool.material_nombre)}: ${Number(tool.cantidad)} asignadas, ${Number(tool.pendientes)} pendientes <span data-internal-cost>· uso Q ${Number(tool.precio_uso).toFixed(2)}${Number(tool.precio_baja) ? ` · reposición Q ${Number(tool.precio_baja).toFixed(2)}` : ''}</span></div>`).join('') : 'Sin herramientas asignadas'}</div>
       </div>
       <div class="fila-ficha-cliente">
         <label class="etiqueta-ficha-cliente">Descripción:</label>
@@ -3742,11 +3736,13 @@ async function setupProjectTools(form, projectId) {
   const addButton = form.querySelector('#btnAgregarHerramientaProyecto');
   if (!select || !list || !addButton) return;
   list.innerHTML = '';
+  const currentUser = await getCurrentUser();
+  const isAdministrator = String(currentUser?.rol || '').trim().toLowerCase() === 'administrador';
   let available = [];
   try {
     available = await apiRequest('herramientas/disponibilidad');
     select.innerHTML = '<option value="">Seleccione una herramienta</option>' + available
-      .map((tool) => `<option value="${escapeAttribute(tool.id_material)}" data-available="${Number(tool.disponibles)}">${escapeHtml(tool.nombre)} (${Number(tool.disponibles)} disponibles · ${Number(tool.usos_disponibles)} usos restantes · Q ${Number(tool.precio_uso).toFixed(2)}/uso)</option>`).join('');
+      .map((tool) => `<option value="${escapeAttribute(tool.id_material)}" data-available="${Number(tool.disponibles)}">${escapeHtml(tool.nombre)} (${Number(tool.disponibles)} disponibles · ${Number(tool.usos_disponibles)} usos restantes${isAdministrator ? ` · Q ${Number(tool.precio_uso).toFixed(2)}/uso` : ''})</option>`).join('');
   } catch (error) {
     showToast(error.message || 'No se pudo consultar la disponibilidad.', 'error');
   }
@@ -4217,9 +4213,10 @@ function setupInventoryCostField(form) {
 
   const updateCostField = () => {
     const isEntry = typeSelect.value === 'Entrada';
-    costGroup.hidden = !isEntry;
-    costInput.disabled = !isEntry;
-    costInput.required = isEntry;
+    const canViewCost = !document.body.classList.contains('rol-operador');
+    costGroup.hidden = !isEntry || !canViewCost;
+    costInput.disabled = !isEntry || !canViewCost;
+    costInput.required = isEntry && canViewCost;
     if (!isEntry) costInput.value = '';
     if (costLabel) costLabel.textContent = 'Costo unitario (Q)' + (isEntry ? ' *' : '');
   };
