@@ -4441,19 +4441,22 @@ td {
 
   .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-mobile-menu-trigger {
     align-items: center;
+    aspect-ratio: 1;
     background: #b94f42;
     border: 0;
     border-radius: 50%;
     box-shadow: 0 2px 5px rgba(26, 44, 61, .2);
     color: #fff;
     display: inline-flex;
+    flex: 0 0 36px;
     font-size: 22px;
     font-weight: 800;
-    height: 34px;
+    height: 36px;
     justify-content: center;
     line-height: 1;
-    padding: 0 3px 7px;
-    width: 34px;
+    min-width: 36px;
+    padding: 0 0 5px;
+    width: 36px;
   }
 
   .pagina-proyectos #tabla-proyectos tbody tr:not(.empty-table) .project-mobile-menu-trigger:focus-visible,
@@ -4582,19 +4585,22 @@ td {
   #tabla-clientes .mobile-entity-card__menu-trigger,
   #tabla-usuarios .mobile-entity-card__menu-trigger {
     align-items: center;
+    aspect-ratio: 1;
     background: #b94f42;
     border: 0;
     border-radius: 50%;
     box-shadow: 0 2px 5px rgba(26, 44, 61, .2);
     color: #fff;
     display: inline-flex;
+    flex: 0 0 36px;
     font-size: 22px;
     font-weight: 800;
-    height: 34px;
+    height: 36px;
     justify-content: center;
     line-height: 1;
-    padding: 0 3px 7px;
-    width: 34px;
+    min-width: 36px;
+    padding: 0 0 5px;
+    width: 36px;
   }
 
   #tabla-clientes .mobile-entity-card__menu,
