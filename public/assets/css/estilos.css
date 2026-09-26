@@ -4346,7 +4346,9 @@ td {
 .project-mobile-menu-trigger,
 .project-mobile-menu,
 .project-mobile-action-target,
-.mobile-action-target {
+.mobile-action-target,
+.mobile-entity-card__menu-trigger,
+.mobile-entity-card__menu {
   display: none;
 }
 
