@@ -589,13 +589,13 @@ function setTableSearches() {
     const tbody = table.querySelector('tbody');
     if (tbody) {
       new MutationObserver(() => {
+        tbody.querySelectorAll('tr:not(.empty-table)').forEach((row) => {
+          row._tableSearchText = undefined;
+        });
         applyFilters();
-        updateTableSearchCount(input, table);
       }).observe(tbody, {
         childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['hidden']
+        subtree: true
       });
     }
   });
@@ -605,11 +605,21 @@ function setTableSearches() {
 function applyProjectFilters(table) {
   const search = document.querySelector(`[data-table-search="${table.id}"]`);
   const query = search?.value.trim().toLowerCase() || '';
+  const countElement = document.querySelector(`[data-search-count="${table.id}"]`);
+  let visibleRows = 0;
+
   table.querySelectorAll('tbody tr:not(.empty-table)').forEach((row) => {
-    const matchesSearch = !query || row.textContent.toLowerCase().includes(query);
-    row.hidden = !matchesSearch;
+    if (row._tableSearchText === undefined) {
+      row._tableSearchText = row.textContent.toLowerCase();
+    }
+    const matchesSearch = !query || row._tableSearchText.includes(query);
+    if (matchesSearch) visibleRows += 1;
+    if (row.hidden !== !matchesSearch) row.hidden = !matchesSearch;
   });
-  if (search) updateTableSearchCount(search, table);
+
+  if (countElement) {
+    countElement.textContent = `${visibleRows} ${visibleRows === 1 ? 'registro encontrado' : 'registros encontrados'}`;
+  }
 }
 
 function updateTableSearchCount(input, table) {
