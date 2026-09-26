@@ -173,6 +173,10 @@ function getLoginErrorMessage(error) {
 
   if (!normalized) return 'Credenciales inválidas. Verifique su usuario y contraseña.';
 
+  if (/usuario desactivado|cuenta desactivada/.test(lowerMessage)) {
+    return 'Este usuario está desactivado. Comuníquese con un administrador.';
+  }
+
   if (/(unauthorized|invalid credentials|credenciales invalid|usuario o contrasena|usuario o contraseña|wrong password|bad credentials|not authorized|401|403)/i.test(lowerMessage)) {
     return 'Credenciales inválidas. Verifique su usuario y contraseña.';
   }
