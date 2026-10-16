@@ -4808,6 +4808,83 @@ td {
   .pagina-cotizaciones .quote-items-table td:nth-child(6) { white-space: nowrap; }
   .pagina-cotizaciones .quote-items-table td:nth-child(7) .quote-line-remove { align-self: start; }
 }
+@media (max-width: 900px) {
+  .pagina-cotizaciones .quote-items-table tbody { display: grid; gap: 18px; }
+  .pagina-cotizaciones .quote-items-table tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .pagina-cotizaciones .quote-items-table td {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 7px;
+    padding: 0;
+    border: 0 !important;
+    background: transparent !important;
+  }
+  .pagina-cotizaciones .quote-items-table td::before {
+    color: #58708a;
+    font-size: .82rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+  .pagina-cotizaciones .quote-items-table td:nth-child(1),
+  .pagina-cotizaciones .quote-items-table td:nth-child(2),
+  .pagina-cotizaciones .quote-items-table td:nth-child(3),
+  .pagina-cotizaciones .quote-items-table td:nth-child(4),
+  .pagina-cotizaciones .quote-items-table td:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+  .pagina-cotizaciones .quote-items-table td:nth-child(1) { padding-right: 0; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(6) {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    justify-content: flex-start;
+    min-height: 82px;
+    padding: 13px 16px;
+    border-radius: 16px;
+    background: linear-gradient(110deg, #fde5e3, #fff0ef) !important;
+    white-space: normal;
+  }
+  .pagina-cotizaciones .quote-items-table td:nth-child(7) {
+    position: absolute;
+    top: -4px;
+    right: 0;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    padding: 0;
+  }
+  .pagina-cotizaciones .quote-items-table td:nth-child(7)::before { display: none; }
+  .pagina-cotizaciones .quote-items-table input,
+  .pagina-cotizaciones .quote-items-table select {
+    min-height: 52px;
+    padding: 10px 14px;
+    border: 1px solid #d4dfeb;
+    border-radius: 13px;
+    background: #fff;
+    font-size: 1rem;
+  }
+  .pagina-cotizaciones .quote-items-table input { width: min(100%, 260px); }
+  .pagina-cotizaciones .quote-items-table select { width: 100%; }
+  .pagina-cotizaciones .quote-items-table input[readonly] { background: #fff; color: var(--ink); }
+  .pagina-cotizaciones .quote-line-subtotal { font-size: 1.15rem !important; font-weight: 800; }
+  .pagina-cotizaciones .quote-line-remove-cell { background: transparent !important; }
+  .pagina-cotizaciones .quote-line-remove {
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 10px;
+    background: #fff1ef;
+  }
+}
 @media (max-width: 520px) {
   .pagina-cotizaciones .contenido-pagina { padding-inline: 14px; }
   .pagina-cotizaciones .quote-layout { gap: 14px; }
