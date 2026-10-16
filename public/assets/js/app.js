@@ -630,6 +630,36 @@ async function setupQuoteModule() {
   } catch (error) {
     console.warn('No se pudo cargar el catálogo de materiales para cotizaciones:', error.message);
   }
+  if (new URLSearchParams(window.location.search).get('desde-calculo') === '1') {
+    try {
+      const draft = JSON.parse(sessionStorage.getItem('cotizacionDesdeCalculo') || 'null');
+      if (draft && Number(draft.area_m2) > 0 && Array.isArray(draft.items) && materials.length) {
+        areaInput.value = Number(draft.area_m2).toFixed(2);
+        for (const draftItem of draft.items) {
+          const material = materials.find((item) => String(item.id_material ?? item.id) === String(draftItem.id));
+          if (!material) continue;
+          const kind = getMaterialKind(material);
+          const body = itemsContainer.querySelector(`[data-quote-items="${kind === 'Mano de obra' ? 'mano-obra' : 'materiales'}"]`);
+          let row = [...body.querySelectorAll('[data-quote-item]')].find((itemRow) => !itemRow.querySelector('[data-item-catalog]').value);
+          if (kind === 'Mano de obra' && body.querySelector('[data-quote-item]')) continue;
+          if (!row) row = addItemRow(kind, body);
+          row.querySelector('[data-item-kind]').value = kind;
+          refreshCatalogOptions(row);
+          setCatalogMaterial(row, String(draftItem.id));
+          row.querySelector('[data-item-quantity]').value = String(Math.max(1, Math.ceil(Number(draftItem.cantidad) || 1)));
+        }
+        updateLaborButton();
+        updatePaintEstimate();
+        updateLineTotals();
+        sessionStorage.removeItem('cotizacionDesdeCalculo');
+        showToast('Cálculo y material cargados en la cotización.', 'success');
+      } else {
+        showToast('No se encontró el material calculado en el catálogo. Selecciónelo manualmente.', 'error');
+      }
+    } catch (error) {
+      console.warn('No se pudo recuperar el cálculo para la cotización:', error.message);
+    }
+  }
   updatePaintEstimate();
   updatePreview();
 }
@@ -968,6 +998,7 @@ async function loadCalculatorMaterials() {
     const items = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
     const materials = items.filter((material) =>
       normalizeErrorText(material.categoria || material.tipo) !== 'mano de obra'
+      && String(material.estado || '').toLowerCase() !== 'archivado'
     );
     select.innerHTML = '<option value="">Seleccione un material</option>' + materials.map((material) => {
       const id = material.id_material ?? material.id ?? '';
@@ -996,13 +1027,29 @@ function setCalculator() {
     const coverage = Number(data.get('rendimiento'));
     const price = Number(data.get('costo') || 0);
     const area = length * height;
-    const gallons = area / coverage;
+    const gallons = Math.ceil(area / coverage);
     const materialSelect = form.querySelector('#calculo-material');
     const materialName = materialSelect && materialSelect.selectedIndex > 0
       ? materialSelect.options[materialSelect.selectedIndex].text
       : (data.get('material') || 'Material');
-    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido</p><strong>${gallons.toFixed(2)} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${materialName}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div data-internal-cost><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
-    output.querySelector('[data-save-calculation]').addEventListener('click', () => showToast('Cálculo preparado y listo para guardar mediante la API.', 'success'));
+    const materialId = materialSelect?.value;
+    output.innerHTML = `<div class="encabezado-panel"><div><h2>Resultado estimado</h2><p>Revise el cálculo antes de guardarlo.</p></div></div><div class="resumen-calculo"><div class="resumen-calculo__main"><p>Material requerido (redondeado al galón completo)</p><strong>${gallons.toLocaleString('es-GT')} galones</strong></div><div class="lista-calculo"><div><span>Área total</span><strong>${area.toFixed(2)} m²</strong></div><div><span>Material</span><strong>${materialName}</strong></div><div><span>Rendimiento</span><strong>${coverage.toFixed(2)} m²/galón</strong></div><div data-internal-cost><span>Costo estimado</span><strong>Q ${(gallons * price).toFixed(2)}</strong></div></div><button type="button" class="boton boton-secundario" data-save-calculation>Guardar cálculo estimado</button></div>`;
+    output.querySelector('[data-save-calculation]').addEventListener('click', () => {
+      if (!materialId) {
+        showToast('Seleccione un material del catálogo antes de continuar.', 'error');
+        return;
+      }
+      const quoteDraft = {
+        area_m2: Number(area.toFixed(2)),
+        items: [{ id: String(materialId), cantidad: Math.max(1, Math.ceil(gallons)) }]
+      };
+      try {
+        sessionStorage.setItem('cotizacionDesdeCalculo', JSON.stringify(quoteDraft));
+        window.location.href = 'cotizaciones.html?desde-calculo=1';
+      } catch (error) {
+        showToast('No se pudo preparar la cotización. Intente nuevamente.', 'error');
+      }
+    });
   });
 }
 
