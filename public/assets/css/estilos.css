@@ -4682,7 +4682,7 @@ td {
 /* Módulo financiero */
 .pagina-finanzas .finance-metrics .tarjeta-metrica strong { font-size: clamp(1.2rem, 2vw, 1.75rem); }
 .pagina-finanzas .finance-projects-panel { margin-top: 24px; }
-.pagina-finanzas .tabla-finanzas { width: 100%; min-width: 760px; border-collapse: collapse; }
+.pagina-finanzas .tabla-finanzas { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; }
 .pagina-finanzas .tabla-finanzas th, .pagina-finanzas .tabla-finanzas td { padding: 14px 16px; border-bottom: 1px solid var(--line); text-align: left; }
 .pagina-finanzas .tabla-finanzas th { color: var(--texto-suave); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .pagina-finanzas .tabla-finanzas td { color: var(--ink); }
@@ -4690,6 +4690,21 @@ td {
 .pagina-finanzas .finance-note { margin: 14px 16px 2px; color: var(--texto-suave); font-size: .85rem; }
 .pagina-finanzas .finance-error { padding: 24px; }
 .pagina-finanzas .finance-error h2 { font-size: 1.1rem; }
+@media (max-width: 900px) {
+  .pagina-finanzas .finance-projects-panel { min-width: 0; }
+  .pagina-finanzas .finance-projects-panel .contenedor-tabla { overflow: visible; }
+  .pagina-finanzas .tabla-finanzas, .pagina-finanzas .tabla-finanzas tbody { display: block; }
+  .pagina-finanzas .tabla-finanzas thead { display: none; }
+  .pagina-finanzas .tabla-finanzas tbody { display: grid; gap: 10px; }
+  .pagina-finanzas .tabla-finanzas tbody tr:not(.empty-table) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .pagina-finanzas .tabla-finanzas tbody td { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 8px; overflow-wrap: anywhere; }
+  .pagina-finanzas .tabla-finanzas tbody td::before { content: attr(data-label); color: var(--texto-suave); font-size: .72rem; font-weight: 700; }
+  .pagina-finanzas .tabla-finanzas tbody td[colspan] { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .pagina-finanzas .tabla-finanzas tbody tr:not(.empty-table) { grid-template-columns: 1fr; }
+  .pagina-finanzas .finance-note { margin-inline: 8px; }
+}
 
 /* Envío de cotizaciones */
 .pagina-cotizaciones .quote-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 22px; align-items: start; }
@@ -4725,3 +4740,49 @@ td {
 .pagina-cotizaciones .quote-preview__line { display: flex; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .pagina-cotizaciones .quote-preview__line small, .pagina-cotizaciones .quote-preview__email { color: var(--texto-suave); }
 .pagina-cotizaciones .quote-preview__line strong { white-space: nowrap; }
+
+/* Cotizaciones: tabla completa y partidas adaptables al espacio disponible */
+.pagina-cotizaciones .quote-items-table-wrap { overflow: visible; }
+.pagina-cotizaciones .quote-items-table { width: 100%; min-width: 0; table-layout: fixed; }
+.pagina-cotizaciones .quote-items-table th, .pagina-cotizaciones .quote-items-table td { padding: 6px 5px; }
+.pagina-cotizaciones .quote-items-table th { overflow-wrap: anywhere; font-size: .68rem; }
+.pagina-cotizaciones .quote-items-table th:nth-child(1) { width: 12%; }
+.pagina-cotizaciones .quote-items-table th:nth-child(2) { width: 28%; }
+.pagina-cotizaciones .quote-items-table th:nth-child(3) { width: 9%; }
+.pagina-cotizaciones .quote-items-table th:nth-child(4) { width: 9%; }
+.pagina-cotizaciones .quote-items-table th:nth-child(5) { width: 17%; }
+.pagina-cotizaciones .quote-items-table th:nth-child(6) { width: 16%; }
+.pagina-cotizaciones .quote-items-table th:nth-child(7) { width: 9%; }
+.pagina-cotizaciones .quote-items-table td:nth-child(2) { min-width: 0; }
+.pagina-cotizaciones .quote-items-table input, .pagina-cotizaciones .quote-items-table select { min-width: 0; padding: 6px 5px; font-size: .78rem; }
+.pagina-cotizaciones .quote-items-table td:nth-child(6) { overflow-wrap: anywhere; font-size: .78rem; }
+.pagina-cotizaciones .quote-line-remove-cell { text-align: center; }
+@media (max-width: 1200px) {
+  .pagina-cotizaciones .quote-items-table, .pagina-cotizaciones .quote-items-table tbody { display: block; }
+  .pagina-cotizaciones .quote-items-table thead { display: none; }
+  .pagina-cotizaciones .quote-items-table tbody { display: grid; gap: 10px; }
+  .pagina-cotizaciones .quote-items-table tr { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; padding: 9px; border: 1px solid var(--line); border-radius: 10px; }
+  .pagina-cotizaciones .quote-items-table td { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 3px; border: 0; }
+  .pagina-cotizaciones .quote-items-table td::before { content: attr(data-label); color: var(--texto-suave); font-size: .68rem; font-weight: 600; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(1) { grid-column: span 2; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(2) { grid-column: span 5; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(3) { grid-column: span 2; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(4) { grid-column: span 1; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(5) { grid-column: span 2; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(6) { grid-column: span 1; justify-content: end; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(7) { grid-column: span 1; justify-content: end; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(6)::before, .pagina-cotizaciones .quote-items-table td:nth-child(7)::before { margin-bottom: 4px; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(6) { white-space: nowrap; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(7) .quote-line-remove { align-self: start; }
+}
+@media (max-width: 520px) {
+  .pagina-cotizaciones .quote-items-heading { align-items: flex-start; flex-direction: column; }
+  .pagina-cotizaciones .quote-items-table tr { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .pagina-cotizaciones .quote-items-table td:nth-child(1) { grid-column: span 2; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(2) { grid-column: span 4; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(3) { grid-column: span 2; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(4) { grid-column: span 1; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(5) { grid-column: span 2; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(6) { grid-column: span 1; }
+  .pagina-cotizaciones .quote-items-table td:nth-child(7) { grid-column: span 1; }
+}

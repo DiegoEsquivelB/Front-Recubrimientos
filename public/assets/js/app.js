@@ -420,15 +420,33 @@ async function setupQuoteModule() {
     if (!subject.value.trim() && concept.value.trim()) subject.value = `Cotización: ${concept.value.trim()}`;
   };
 
-  const addItemRow = () => {
-    const row = document.createElement('tr');
-    row.dataset.quoteItem = 'true';
-    const materialOptions = materials.map((material) => {
+  const getMaterialKind = (material) => {
+    const normalizedType = String(material.tipo || material.categoria || '').toLowerCase();
+    if (normalizedType.includes('mano de obra')) return 'Mano de obra';
+    if (String(material.modo_uso || '').toLowerCase() === 'reutilizable') return 'Herramienta';
+    return 'Material';
+  };
+
+  const refreshCatalogOptions = (row, selectedId = '') => {
+    const selectedKind = row.querySelector('[data-item-kind]').value;
+    const catalogSelect = row.querySelector('[data-item-catalog]');
+    const matchingMaterials = materials.filter((material) => getMaterialKind(material) === selectedKind);
+    const options = matchingMaterials.map((material) => {
       const id = material.id_material ?? material.id;
       return `<option value="${escapeAttribute(id)}">${escapeHtml(material.codigo ? `${material.codigo} · ${material.nombre}` : material.nombre)}</option>`;
     }).join('');
-    row.innerHTML = `<td><select data-item-kind aria-label="Tipo de partida"><option>Material</option><option>Mano de obra</option><option>Herramienta</option><option>Otro</option></select></td><td><select data-item-catalog aria-label="Elegir del catálogo"><option value="">Manual</option>${materialOptions}</select><input data-item-description type="text" maxlength="150" placeholder="Descripción de la partida" required /></td><td><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td><input data-item-unit type="text" maxlength="30" value="unidad" aria-label="Unidad" required /></td><td><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="0.00" aria-label="Precio unitario" required /></td><td class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
+    catalogSelect.innerHTML = `<option value="">Manual</option>${options}`;
+    if (selectedId && matchingMaterials.some((material) => String(material.id_material ?? material.id) === String(selectedId))) {
+      catalogSelect.value = String(selectedId);
+    }
+  };
+
+  const addItemRow = () => {
+    const row = document.createElement('tr');
+    row.dataset.quoteItem = 'true';
+    row.innerHTML = `<td data-label="Tipo"><select data-item-kind aria-label="Tipo de partida"><option>Material</option><option>Mano de obra</option><option>Herramienta</option><option>Otro</option></select></td><td data-label="Artículo o servicio"><select data-item-catalog aria-label="Elegir del catálogo"><option value="">Manual</option></select><input data-item-description type="text" maxlength="150" placeholder="Descripción de la partida" required /></td><td data-label="Cantidad"><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td data-label="Unidad"><input data-item-unit type="text" maxlength="30" value="unidad" aria-label="Unidad" required /></td><td data-label="Precio unitario (Q)"><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="0.00" aria-label="Precio unitario" required /></td><td data-label="Subtotal" class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td data-label="Quitar" class="quote-line-remove-cell"><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
     itemsBody.appendChild(row);
+    refreshCatalogOptions(row);
     return row;
   };
 
@@ -444,9 +462,8 @@ async function setupQuoteModule() {
   const setCatalogMaterial = (row, id) => {
     const material = materials.find((item) => String(item.id_material ?? item.id) === id);
     if (!material) return;
-    const normalizedType = String(material.tipo || material.categoria || '').toLowerCase();
+    const kind = getMaterialKind(material);
     const reusable = String(material.modo_uso || '').toLowerCase() === 'reutilizable';
-    const kind = normalizedType.includes('mano de obra') ? 'Mano de obra' : reusable ? 'Herramienta' : 'Material';
     const price = kind === 'Mano de obra'
       ? Number(material.precio_venta || material.precio_unitario || material.costo || 0)
       : reusable
@@ -454,6 +471,7 @@ async function setupQuoteModule() {
         : Number(material.precio_venta || material.precio_unitario || material.costo || 0);
     row.querySelector('[data-item-description]').value = material.nombre || '';
     row.querySelector('[data-item-kind]').value = kind;
+    refreshCatalogOptions(row, id);
     row.querySelector('[data-item-unit]').value = material.unidad || material.unidad_medida || (kind === 'Mano de obra' ? 'm²' : 'unidad');
     row.querySelector('[data-item-price]').value = price.toFixed(2);
     updateLineTotals();
@@ -475,8 +493,19 @@ async function setupQuoteModule() {
   });
   itemsBody.addEventListener('input', updateLineTotals);
   itemsBody.addEventListener('change', (event) => {
-    if (event.target.matches('[data-item-catalog]')) setCatalogMaterial(event.target.closest('[data-quote-item]'), event.target.value);
-    else updateLineTotals();
+    if (event.target.matches('[data-item-catalog]')) {
+      setCatalogMaterial(event.target.closest('[data-quote-item]'), event.target.value);
+    } else if (event.target.matches('[data-item-kind]')) {
+      const row = event.target.closest('[data-quote-item]');
+      const previousCatalogItem = row.querySelector('[data-item-catalog]').value;
+      refreshCatalogOptions(row);
+      if (previousCatalogItem) {
+        row.querySelector('[data-item-description]').value = '';
+        row.querySelector('[data-item-unit]').value = 'unidad';
+        row.querySelector('[data-item-price]').value = '';
+      }
+      updateLineTotals();
+    } else updateLineTotals();
   });
   itemsBody.addEventListener('click', (event) => {
     const removeButton = event.target.closest('[data-remove-quote-item]');
@@ -524,18 +553,12 @@ async function setupQuoteModule() {
     }
   });
 
-  addItemRow();
+  itemsBody.querySelectorAll('[data-quote-item]').forEach((row) => refreshCatalogOptions(row));
   try {
     const response = await apiRequest('materiales');
     const catalog = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
     materials.push(...catalog.filter((material) => String(material.estado || '').toLowerCase() !== 'archivado'));
-    const optionMarkup = materials.map((material) => {
-      const id = material.id_material ?? material.id;
-      return `<option value="${escapeAttribute(id)}">${escapeHtml(material.codigo ? `${material.codigo} · ${material.nombre}` : material.nombre)}</option>`;
-    }).join('');
-    itemsBody.querySelectorAll('[data-item-catalog]').forEach((select) => {
-      select.insertAdjacentHTML('beforeend', optionMarkup);
-    });
+    itemsBody.querySelectorAll('[data-quote-item]').forEach((row) => refreshCatalogOptions(row));
   } catch (error) {
     console.warn('No se pudo cargar el catálogo de materiales para cotizaciones:', error.message);
   }
