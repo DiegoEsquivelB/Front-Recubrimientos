@@ -197,6 +197,7 @@ if (typeof document !== 'undefined') {
     initializeRichTextEditors();
     setSidebarControls();
     setPasswordToggle();
+    setupPasswordRecovery();
     applyRememberedLoginState();
     setStandardForms();
     setTableSearches();
@@ -803,6 +804,67 @@ function setPasswordToggle() {
     input.type = isPassword ? 'text' : 'password';
     toggle.textContent = isPassword ? '◌' : '◉';
     toggle.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
+}
+
+function setupPasswordRecovery() {
+  const requestForm = document.querySelector('[data-password-reset-request]');
+  if (requestForm) {
+    const button = requestForm.querySelector('[type="submit"]');
+    requestForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!requestForm.reportValidity()) return;
+      button.disabled = true;
+      button.textContent = 'Enviando...';
+      try {
+        const result = await apiRequest('auth/password-reset/request', {
+          method: 'POST',
+          body: { email: requestForm.elements.email.value.trim() }
+        });
+        showToast(result?.message || 'Si el correo corresponde a una cuenta activa, recibirá instrucciones.', 'success');
+        requestForm.reset();
+      } catch (error) {
+        showToast(error.message || 'No se pudo procesar la solicitud.', 'error');
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Enviar enlace';
+      }
+    });
+  }
+
+  const resetForm = document.querySelector('[data-password-reset-confirm]');
+  if (!resetForm) return;
+  const token = new URLSearchParams(window.location.search).get('token') || '';
+  const button = resetForm.querySelector('[type="submit"]');
+  if (!token) {
+    button.disabled = true;
+    showToast('El enlace no contiene un token válido. Solicita uno nuevo desde el inicio de sesión.', 'error');
+  }
+  resetForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const password = resetForm.elements.password.value;
+    if (password !== resetForm.elements.confirm_password.value) {
+      showToast('Las contraseñas no coinciden.', 'error');
+      resetForm.elements.confirm_password.focus();
+      return;
+    }
+    if (!token || !resetForm.reportValidity()) return;
+    button.disabled = true;
+    button.textContent = 'Guardando...';
+    try {
+      const result = await apiRequest('auth/password-reset/confirm', {
+        method: 'POST',
+        body: { token, password }
+      });
+      showToast(result?.message || 'La contraseña se actualizó correctamente.', 'success');
+      resetForm.reset();
+      window.setTimeout(() => { window.location.href = 'login.html'; }, 1600);
+    } catch (error) {
+      showToast(error.message || 'No se pudo actualizar la contraseña.', 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Guardar contraseña';
+    }
   });
 }
 

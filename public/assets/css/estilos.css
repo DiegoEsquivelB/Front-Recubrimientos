@@ -2953,6 +2953,16 @@ td {
   text-align: center;
 }
 
+.nota-formulario a {
+  color: #185d95;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.nota-formulario a:hover {
+  text-decoration: underline;
+}
+
 .error-login {
   background: rgba(217, 83, 79, 0.08);
   border: 1px solid rgba(217, 83, 79, 0.2);
