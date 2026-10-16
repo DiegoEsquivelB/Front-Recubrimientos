@@ -5229,3 +5229,110 @@ td {
     color: var(--ink);
   }
 }
+
+/* ==========================================================
+   Cotizaciones · tarjetas de partidas (material / mano de obra) en móvil
+   Va al FINAL del archivo. Anula las reglas genéricas
+   `.contenedor-tabla > table tbody tr` que se mezclaban con estas.
+   ========================================================== */
+@media (max-width: 900px) {
+  /* El contenedor de la tabla no debe ser una caja propia */
+  .pagina-cotizaciones .quote-items-table-wrap {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible !important;
+  }
+  /* Sin partidas (p. ej. mano de obra vacía): no dejar hueco */
+  .pagina-cotizaciones .quote-items-table-wrap:has(tbody:empty) { display: none; }
+
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody { display: grid; gap: 14px; }
+
+  /* Cada partida = una tarjeta con aire interno */
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px 14px 14px !important;
+    border: 1px solid #e3ebf2 !important;
+    border-radius: 16px;
+    background: #fbfcfd !important;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    text-align: left;
+    overflow: visible;
+  }
+
+  /* Etiqueta arriba del campo, sin recortes */
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td::before {
+    flex: none;
+    width: auto;
+    color: #58708a;
+    font-size: .74rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    line-height: 1.2;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  /* Campos a todo el ancho de la tarjeta */
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td > * {
+    max-width: none;
+  }
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td input,
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td select {
+    width: 100% !important;
+    max-width: none;
+    min-height: 50px;
+    padding: 10px 14px;
+    border: 1px solid #d4dfeb;
+    border-radius: 13px;
+    background-color: #fff;
+    font-size: 1rem;
+  }
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td input[readonly] {
+    background-color: #f3f6f8;
+    color: var(--texto-suave);
+  }
+
+  /* Deja sitio a la "×" junto al selector de Tipo */
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td:nth-child(1) { padding-right: 52px !important; }
+
+  /* Subtotal */
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td:nth-child(6) {
+    min-height: 0;
+    margin-top: 2px;
+    padding: 12px 16px !important;
+    border-radius: 14px;
+    background: linear-gradient(110deg, #fde5e3, #fff0ef) !important;
+  }
+
+  /* Botón quitar: esquina superior derecha de la tarjeta */
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td:nth-child(7) {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    background: transparent !important;
+  }
+  .pagina-cotizaciones .quote-items-table-wrap > .quote-items-table tbody tr:not(.empty-table) td:nth-child(7)::before { display: none; }
+}
