@@ -421,7 +421,7 @@ async function setupQuoteModule() {
     const rows = allQuoteRows();
     const groups = rows.reduce((result, row) => {
       const kind = row.querySelector('[data-item-kind]').value;
-      const name = row.querySelector('[data-item-description]').value.trim() || 'Partida sin descripción';
+      const name = getCatalogMaterial(row)?.nombre || 'Seleccione un artículo';
       const quantity = Number(row.querySelector('[data-item-quantity]').value || 0);
       const price = Number(row.querySelector('[data-item-price]').value || 0);
       result[kind] ||= [];
@@ -448,18 +448,17 @@ async function setupQuoteModule() {
       const id = material.id_material ?? material.id;
       return `<option value="${escapeAttribute(id)}">${escapeHtml(material.codigo ? `${material.codigo} · ${material.nombre}` : material.nombre)}</option>`;
     }).join('');
-    catalogSelect.innerHTML = `<option value="">Manual</option>${options}`;
+    catalogSelect.innerHTML = `<option value="">Seleccione un artículo</option>${options}`;
     if (selectedId && matchingMaterials.some((material) => String(material.id_material ?? material.id) === String(selectedId))) {
       catalogSelect.value = String(selectedId);
     }
   };
 
-  const enableQuoteEdits = (row) => {
-    row.querySelectorAll('[data-item-description], [data-item-unit], [data-item-price]').forEach((field) => {
+  const lockCatalogFields = (row) => {
+    row.querySelectorAll('[data-item-unit], [data-item-price]').forEach((field) => {
       field.disabled = false;
-      field.readOnly = false;
-      field.removeAttribute('readonly');
-      field.setAttribute('aria-readonly', 'false');
+      field.readOnly = true;
+      field.setAttribute('aria-readonly', 'true');
     });
   };
 
@@ -484,11 +483,11 @@ async function setupQuoteModule() {
   const addItemRow = (kind, itemsBody) => {
     const row = document.createElement('tr');
     row.dataset.quoteItem = 'true';
-    const kinds = kind === 'Mano de obra' ? ['Mano de obra'] : ['Material', 'Herramienta', 'Otro'];
-    row.innerHTML = `<td data-label="Tipo"><select data-item-kind aria-label="Tipo de partida">${kinds.map((option) => `<option>${option}</option>`).join('')}</select></td><td data-label="Artículo o servicio"><select data-item-catalog aria-label="Elegir del catálogo"><option value="">Manual</option></select><input data-item-description type="text" maxlength="150" placeholder="Descripción de la partida" required /></td><td data-label="Cantidad"><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td data-label="Unidad"><input data-item-unit type="text" maxlength="30" value="unidad" aria-label="Unidad" required /></td><td data-label="Precio unitario (Q)"><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="0.00" aria-label="Precio unitario" required /></td><td data-label="Subtotal" class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td data-label="Quitar" class="quote-line-remove-cell"><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
+    const kinds = kind === 'Mano de obra' ? ['Mano de obra'] : ['Material', 'Herramienta'];
+    row.innerHTML = `<td data-label="Tipo"><select data-item-kind aria-label="Tipo de partida">${kinds.map((option) => `<option>${option}</option>`).join('')}</select></td><td data-label="Artículo o servicio"><select data-item-catalog aria-label="Elegir del catálogo" required><option value="">Seleccione un artículo</option></select></td><td data-label="Cantidad"><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td data-label="Unidad"><input data-item-unit type="text" aria-label="Unidad (del catálogo)" placeholder="—" readonly /></td><td data-label="Precio unitario (Q)"><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="—" aria-label="Precio unitario (del catálogo)" readonly /></td><td data-label="Subtotal" class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td data-label="Quitar" class="quote-line-remove-cell"><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
     row.querySelector('[data-item-kind]').value = kind;
     itemsBody.appendChild(row);
-    enableQuoteEdits(row);
+    lockCatalogFields(row);
     refreshCatalogOptions(row);
     return row;
   };
@@ -513,7 +512,7 @@ async function setupQuoteModule() {
   const setCatalogMaterial = (row, id) => {
     const material = materials.find((item) => String(item.id_material ?? item.id) === id);
     if (!material) return;
-    enableQuoteEdits(row);
+    lockCatalogFields(row);
     const kind = getMaterialKind(material);
     const reusable = String(material.modo_uso || '').toLowerCase() === 'reutilizable';
     const price = kind === 'Mano de obra'
@@ -521,7 +520,6 @@ async function setupQuoteModule() {
       : reusable
         ? Number(material.precio_uso || material.precio_venta || material.precio_unitario || material.costo || 0)
         : Number(material.precio_venta || material.precio_unitario || material.costo || 0);
-    row.querySelector('[data-item-description]').value = material.nombre || '';
     row.querySelector('[data-item-kind]').value = kind;
     refreshCatalogOptions(row, id);
     row.querySelector('[data-item-unit]').value = material.unidad || material.unidad_medida || (kind === 'Mano de obra' ? 'm²' : 'unidad');
@@ -547,8 +545,7 @@ async function setupQuoteModule() {
       const previousCatalogItem = row.querySelector('[data-item-catalog]').value;
       refreshCatalogOptions(row);
       if (previousCatalogItem) {
-        row.querySelector('[data-item-description]').value = '';
-        row.querySelector('[data-item-unit]').value = 'unidad';
+        row.querySelector('[data-item-unit]').value = '';
         row.querySelector('[data-item-price]').value = '';
       }
       updateLineTotals();
@@ -596,7 +593,7 @@ async function setupQuoteModule() {
           area_m2: areaInput.value,
           items: allQuoteRows().map((row) => ({
             tipo: row.querySelector('[data-item-kind]').value,
-            descripcion: row.querySelector('[data-item-description]').value.trim(),
+            descripcion: getCatalogMaterial(row)?.nombre || '',
             cantidad: row.querySelector('[data-item-quantity]').value,
             unidad: row.querySelector('[data-item-unit]').value.trim(),
             precio_unitario: row.querySelector('[data-item-price]').value
@@ -615,7 +612,7 @@ async function setupQuoteModule() {
   });
 
   allQuoteRows().forEach((row) => {
-    enableQuoteEdits(row);
+    lockCatalogFields(row);
     refreshCatalogOptions(row);
   });
   updateLaborButton();

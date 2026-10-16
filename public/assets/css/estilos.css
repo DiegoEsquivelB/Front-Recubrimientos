@@ -4761,12 +4761,7 @@ td {
 .pagina-cotizaciones .quote-items-table th, .pagina-cotizaciones .quote-items-table td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .pagina-cotizaciones .quote-items-table th { color: var(--texto-suave); font-size: .75rem; text-align: left; }
 .pagina-cotizaciones .quote-items-table input, .pagina-cotizaciones .quote-items-table select { width: 100%; min-width: 85px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-.pagina-cotizaciones .quote-items-table input[data-item-description],
-.pagina-cotizaciones .quote-items-table input[data-item-unit],
-.pagina-cotizaciones .quote-items-table input[data-item-price] { pointer-events: auto; user-select: text; cursor: text; }
-.pagina-cotizaciones .quote-items-table input[data-item-description]:focus,
-.pagina-cotizaciones .quote-items-table input[data-item-unit]:focus,
-.pagina-cotizaciones .quote-items-table input[data-item-price]:focus { border-color: var(--primary); outline: 3px solid color-mix(in srgb, var(--primary) 15%, transparent); }
+.pagina-cotizaciones .quote-items-table input[readonly] { background: #f3f6f7; color: var(--texto-suave); cursor: default; }
 .pagina-cotizaciones .quote-items-table td:nth-child(2) { min-width: 240px; }
 .pagina-cotizaciones .quote-items-table [data-item-catalog] { margin-bottom: 6px; }
 .pagina-cotizaciones .quote-line-subtotal { white-space: nowrap; font-weight: 700; }
