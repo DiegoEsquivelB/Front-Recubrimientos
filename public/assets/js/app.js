@@ -323,11 +323,11 @@ async function loadFinanceSummary() {
       const projectUtility = Number(project.utilidad_estimada || 0);
       const badge = projectUtility < 0 ? 'badge--danger' : 'badge--success';
       return `<tr>
-        <td><strong>${escapeHtml(project.nombre || 'Proyecto sin nombre')}</strong><small class="finance-client">${escapeHtml(project.cliente_nombre || 'Sin cliente')}</small></td>
-        <td>${escapeHtml(project.estado || 'Pendiente')}</td>
-        <td>${money(project.ingreso_estimado)}</td>
-        <td>${money(project.costo_estimado)}</td>
-        <td><span class="badge ${badge}">${money(projectUtility)}</span></td>
+        <td class="finance-project"><strong>${escapeHtml(project.nombre || 'Proyecto sin nombre')}</strong><small class="finance-client">${escapeHtml(project.cliente_nombre || 'Sin cliente')}</small></td>
+        <td class="finance-state">${escapeHtml(project.estado || 'Pendiente')}</td>
+        <td class="finance-income">${money(project.ingreso_estimado)}</td>
+        <td class="finance-cost">${money(project.costo_estimado)}</td>
+        <td class="finance-utility"><span class="badge ${badge}">${money(projectUtility)}</span></td>
       </tr>`;
     }).join('');
   } catch (error) {
@@ -393,9 +393,12 @@ async function setupQuoteModule() {
   const clientName = form.querySelector('#cotizacion-cliente');
   const recipient = form.querySelector('#cotizacion-destinatario');
   const concept = form.querySelector('#cotizacion-concepto');
+  const areaInput = form.querySelector('#cotizacion-area');
+  const areaEstimate = form.querySelector('[data-quote-area-estimate]');
   const subject = form.querySelector('#cotizacion-asunto');
   const message = form.querySelector('#cotizacion-mensaje');
-  const itemsBody = form.querySelector('[data-quote-items]');
+  const itemsContainer = form.querySelector('[data-quote-items-container]');
+  const allQuoteRows = () => [...itemsContainer.querySelectorAll('[data-quote-item]')];
   const materials = [];
   const preview = document.getElementById('cotizacion-preview');
   const submit = form.querySelector('[type="submit"]');
@@ -404,19 +407,23 @@ async function setupQuoteModule() {
     style: 'currency', currency: 'GTQ', minimumFractionDigits: 2
   }).format(Number(value || 0));
 
-  const calculateTotal = () => [...itemsBody.querySelectorAll('[data-quote-item]')]
+  const calculateTotal = () => allQuoteRows()
     .reduce((sum, row) => sum + Number(row.querySelector('[data-item-quantity]').value || 0) * Number(row.querySelector('[data-item-price]').value || 0), 0);
 
   const updatePreview = () => {
     const previewTitle = concept.value.trim() || 'Nueva cotización';
-    const rows = [...itemsBody.querySelectorAll('[data-quote-item]')];
-    const lineSummary = rows.map((row) => {
+    const rows = allQuoteRows();
+    const groups = rows.reduce((result, row) => {
+      const kind = row.querySelector('[data-item-kind]').value;
       const name = row.querySelector('[data-item-description]').value.trim() || 'Partida sin descripción';
       const quantity = Number(row.querySelector('[data-item-quantity]').value || 0);
       const price = Number(row.querySelector('[data-item-price]').value || 0);
-      return `<div class="quote-preview__line"><span>${escapeHtml(name)} <small>× ${quantity.toLocaleString('es-GT', { maximumFractionDigits: 2 })}</small></span><strong>${formatQuote(quantity * price)}</strong></div>`;
-    }).join('');
-    preview.innerHTML = `<div class="quote-preview__top"><span>Cotización para</span><strong>${escapeHtml(clientName.value.trim() || 'Cliente')}</strong></div><h2>${escapeHtml(previewTitle)}</h2><p class="quote-preview__email">${escapeHtml(recipient.value.trim() || 'Sin indicar')}</p><div class="quote-preview__lines">${lineSummary || '<p class="texto-suave">Agregue partidas para calcular el total.</p>'}</div><div class="quote-preview__total"><span>Total</span><strong>${formatQuote(calculateTotal())}</strong></div>`;
+      result[kind] ||= [];
+      result[kind].push(`<div class="quote-preview__line"><span>${escapeHtml(name)} <small>× ${quantity.toLocaleString('es-GT', { maximumFractionDigits: 2 })}</small></span><strong>${formatQuote(quantity * price)}</strong></div>`);
+      return result;
+    }, {});
+    const lineSummary = Object.entries(groups).map(([kind, lines]) => `<section class="quote-preview__group"><h3>${escapeHtml(kind)}</h3>${lines.join('')}</section>`).join('');
+    preview.innerHTML = `<div class="quote-preview__top"><span>Cotización para</span><strong>${escapeHtml(clientName.value.trim() || 'Cliente')}</strong></div><h2>${escapeHtml(previewTitle)}</h2><p class="quote-preview__email">${escapeHtml(recipient.value.trim() || 'Sin indicar')}</p><p class="quote-preview__area"><strong>Área a pintar:</strong> ${Number(areaInput.value || 0).toLocaleString('es-GT', { maximumFractionDigits: 2 })} m²</p><div class="quote-preview__lines">${lineSummary || '<p class="texto-suave">Agregue partidas para calcular el total.</p>'}</div><div class="quote-preview__total"><span>Total</span><strong>${formatQuote(calculateTotal())}</strong></div>`;
     if (!subject.value.trim() && concept.value.trim()) subject.value = `Cotización: ${concept.value.trim()}`;
   };
 
@@ -441,22 +448,50 @@ async function setupQuoteModule() {
     }
   };
 
-  const addItemRow = () => {
+  const getCatalogMaterial = (row) => materials.find((item) => String(item.id_material ?? item.id) === row.querySelector('[data-item-catalog]').value);
+  const updatePaintEstimate = (updateQuantities = false) => {
+    const area = Number(areaInput.value || 0);
+    const paints = allQuoteRows().map((row) => ({ row, material: getCatalogMaterial(row) }))
+      .filter(({ row, material }) => material && /pintura/i.test(String(material.tipo || material.categoria || '')) && Number(material.rendimiento_m2_gal || material.rendimiento || 0) > 0);
+    if (!area || !paints.length) {
+      areaEstimate.textContent = area ? 'Seleccione pintura(s) del catálogo con rendimiento registrado para calcular la cantidad estimada.' : 'Ingrese el área y seleccione una pintura del catálogo para ver la cantidad estimada.';
+      return;
+    }
+    const estimates = paints.map(({ row, material }) => {
+      const yieldPerGallon = Number(material.rendimiento_m2_gal || material.rendimiento);
+      const gallons = area / yieldPerGallon;
+      if (updateQuantities) row.querySelector('[data-item-quantity]').value = gallons.toFixed(2);
+      return `${escapeHtml(material.nombre)}: ${gallons.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${escapeHtml(material.unidad || 'galón')}`;
+    });
+    areaEstimate.innerHTML = `<strong>Estimado de pintura:</strong> ${estimates.join(' · ')} <small>(área ÷ rendimiento registrado)</small>`;
+  };
+
+  const addItemRow = (kind, itemsBody) => {
     const row = document.createElement('tr');
     row.dataset.quoteItem = 'true';
-    row.innerHTML = `<td data-label="Tipo"><select data-item-kind aria-label="Tipo de partida"><option>Material</option><option>Mano de obra</option><option>Herramienta</option><option>Otro</option></select></td><td data-label="Artículo o servicio"><select data-item-catalog aria-label="Elegir del catálogo"><option value="">Manual</option></select><input data-item-description type="text" maxlength="150" placeholder="Descripción de la partida" required /></td><td data-label="Cantidad"><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td data-label="Unidad"><input data-item-unit type="text" maxlength="30" value="unidad" aria-label="Unidad" required /></td><td data-label="Precio unitario (Q)"><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="0.00" aria-label="Precio unitario" required /></td><td data-label="Subtotal" class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td data-label="Quitar" class="quote-line-remove-cell"><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
+    const kinds = kind === 'Mano de obra' ? ['Mano de obra'] : ['Material', 'Herramienta', 'Otro'];
+    row.innerHTML = `<td data-label="Tipo"><select data-item-kind aria-label="Tipo de partida">${kinds.map((option) => `<option>${option}</option>`).join('')}</select></td><td data-label="Artículo o servicio"><select data-item-catalog aria-label="Elegir del catálogo"><option value="">Manual</option></select><input data-item-description type="text" maxlength="150" placeholder="Descripción de la partida" required /></td><td data-label="Cantidad"><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td data-label="Unidad"><input data-item-unit type="text" maxlength="30" value="unidad" aria-label="Unidad" required /></td><td data-label="Precio unitario (Q)"><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="0.00" aria-label="Precio unitario" required /></td><td data-label="Subtotal" class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td data-label="Quitar" class="quote-line-remove-cell"><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
+    row.querySelector('[data-item-kind]').value = kind;
     itemsBody.appendChild(row);
     refreshCatalogOptions(row);
     return row;
   };
 
   const updateLineTotals = () => {
-    itemsBody.querySelectorAll('[data-quote-item]').forEach((row) => {
+    allQuoteRows().forEach((row) => {
       const quantity = Number(row.querySelector('[data-item-quantity]').value || 0);
       const price = Number(row.querySelector('[data-item-price]').value || 0);
       row.querySelector('[data-item-subtotal]').textContent = formatQuote(quantity * price);
     });
     updatePreview();
+  };
+
+  const updateLaborButton = () => {
+    const laborBody = itemsContainer.querySelector('[data-quote-items="mano-obra"]');
+    const laborButton = itemsContainer.querySelector('[data-add-quote-item="Mano de obra"]');
+    const hasLabor = Boolean(laborBody.querySelector('[data-quote-item]'));
+    laborButton.hidden = hasLabor;
+    laborButton.disabled = hasLabor;
   };
 
   const setCatalogMaterial = (row, id) => {
@@ -474,25 +509,20 @@ async function setupQuoteModule() {
     refreshCatalogOptions(row, id);
     row.querySelector('[data-item-unit]').value = material.unidad || material.unidad_medida || (kind === 'Mano de obra' ? 'm²' : 'unidad');
     row.querySelector('[data-item-price]').value = price.toFixed(2);
+    updatePaintEstimate(true);
     updateLineTotals();
   };
 
-  [clientName, recipient, concept].forEach((field) => {
+  [clientName, recipient, concept, areaInput].forEach((field) => {
     field.addEventListener('input', updatePreview);
   });
+  areaInput.addEventListener('input', () => { updatePaintEstimate(true); updateLineTotals(); });
   concept.addEventListener('input', () => {
     if (!subject.dataset.userEdited) subject.value = concept.value.trim() ? `Cotización: ${concept.value.trim()}` : '';
   });
   subject.addEventListener('input', () => { subject.dataset.userEdited = 'true'; });
-  form.querySelector('[data-add-quote-item]').addEventListener('click', () => {
-    if (itemsBody.querySelectorAll('[data-quote-item]').length >= 50) {
-      showToast('La cotización admite hasta 50 partidas.', 'error');
-      return;
-    }
-    addItemRow();
-  });
-  itemsBody.addEventListener('input', updateLineTotals);
-  itemsBody.addEventListener('change', (event) => {
+  itemsContainer.addEventListener('input', updateLineTotals);
+  itemsContainer.addEventListener('change', (event) => {
     if (event.target.matches('[data-item-catalog]')) {
       setCatalogMaterial(event.target.closest('[data-quote-item]'), event.target.value);
     } else if (event.target.matches('[data-item-kind]')) {
@@ -505,16 +535,29 @@ async function setupQuoteModule() {
         row.querySelector('[data-item-price]').value = '';
       }
       updateLineTotals();
+      updatePaintEstimate();
     } else updateLineTotals();
   });
-  itemsBody.addEventListener('click', (event) => {
-    const removeButton = event.target.closest('[data-remove-quote-item]');
-    if (!removeButton) return;
-    if (itemsBody.querySelectorAll('[data-quote-item]').length === 1) {
-      showToast('La cotización debe incluir al menos una partida.', 'error');
+  itemsContainer.addEventListener('click', (event) => {
+    const addButton = event.target.closest('[data-add-quote-item]');
+    if (addButton) {
+      if (allQuoteRows().length >= 50) {
+        showToast('La cotización admite hasta 50 partidas.', 'error');
+        return;
+      }
+      const kind = addButton.dataset.addQuoteItem;
+      const body = itemsContainer.querySelector(`[data-quote-items="${kind === 'Mano de obra' ? 'mano-obra' : 'materiales'}"]`);
+      if (kind === 'Mano de obra' && body.querySelector('[data-quote-item]')) return;
+      addItemRow(kind, body);
+      updateLaborButton();
+      updateLineTotals();
       return;
     }
+    const removeButton = event.target.closest('[data-remove-quote-item]');
+    if (!removeButton) return;
     removeButton.closest('[data-quote-item]').remove();
+    updateLaborButton();
+    updatePaintEstimate();
     updateLineTotals();
   });
 
@@ -533,7 +576,8 @@ async function setupQuoteModule() {
           cliente_nombre: clientName.value.trim(),
           destinatario: recipient.value.trim(),
           concepto: concept.value.trim(),
-          items: [...itemsBody.querySelectorAll('[data-quote-item]')].map((row) => ({
+          area_m2: areaInput.value,
+          items: allQuoteRows().map((row) => ({
             tipo: row.querySelector('[data-item-kind]').value,
             descripcion: row.querySelector('[data-item-description]').value.trim(),
             cantidad: row.querySelector('[data-item-quantity]').value,
@@ -553,15 +597,17 @@ async function setupQuoteModule() {
     }
   });
 
-  itemsBody.querySelectorAll('[data-quote-item]').forEach((row) => refreshCatalogOptions(row));
+  allQuoteRows().forEach((row) => refreshCatalogOptions(row));
+  updateLaborButton();
   try {
     const response = await apiRequest('materiales');
     const catalog = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
     materials.push(...catalog.filter((material) => String(material.estado || '').toLowerCase() !== 'archivado'));
-    itemsBody.querySelectorAll('[data-quote-item]').forEach((row) => refreshCatalogOptions(row));
+    allQuoteRows().forEach((row) => refreshCatalogOptions(row));
   } catch (error) {
     console.warn('No se pudo cargar el catálogo de materiales para cotizaciones:', error.message);
   }
+  updatePaintEstimate();
   updatePreview();
 }
 
