@@ -206,6 +206,7 @@ if (typeof document !== 'undefined') {
     setDefaultDate();
     loadDashboardData();
     loadFinanceSummary();
+    setupQuoteModule();
     loadRecentProjects();
     loadCrudLists();
     setupClienteModal();
@@ -361,7 +362,7 @@ async function applyRoleAccess() {
     });
     document.querySelectorAll('.enlace-menu, .acciones-rapidas a').forEach((link) => {
       const href = link.getAttribute('href') || '';
-      if (!isAdministrator && /(?:^|\/)(?:usuarios|finanzas)\.html(?:$|#|\?)/i.test(href) && !link.dataset.accessChecked) {
+      if (!isAdministrator && /(?:^|\/)(?:usuarios|finanzas|cotizaciones)\.html(?:$|#|\?)/i.test(href) && !link.dataset.accessChecked) {
         link.dataset.accessChecked = 'true';
         link.addEventListener('click', (event) => {
           event.preventDefault();
@@ -376,12 +377,169 @@ async function applyRoleAccess() {
 
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
   const isAdministrator = String((currentUser || usuarioActual)?.rol || '').trim().toLowerCase() === 'administrador';
-  if (!isAdministrator && ['usuarios.html', 'finanzas.html'].includes(currentPage.toLowerCase())) {
+  if (!isAdministrator && ['usuarios.html', 'finanzas.html', 'cotizaciones.html'].includes(currentPage.toLowerCase())) {
     showToast('No tiene permisos para acceder a este módulo.', 'error');
     window.setTimeout(() => {
       window.location.href = window.location.pathname.includes('/modulos/') ? '../index.html' : 'index.html';
     }, 300);
   }
+}
+
+async function setupQuoteModule() {
+  const quoteContainer = document.querySelector('[data-quote-form]');
+  const form = quoteContainer?.querySelector('form');
+  if (!form) return;
+
+  const clientName = form.querySelector('#cotizacion-cliente');
+  const recipient = form.querySelector('#cotizacion-destinatario');
+  const concept = form.querySelector('#cotizacion-concepto');
+  const subject = form.querySelector('#cotizacion-asunto');
+  const message = form.querySelector('#cotizacion-mensaje');
+  const itemsBody = form.querySelector('[data-quote-items]');
+  const materials = [];
+  const preview = document.getElementById('cotizacion-preview');
+  const submit = form.querySelector('[type="submit"]');
+
+  const formatQuote = (value) => new Intl.NumberFormat('es-GT', {
+    style: 'currency', currency: 'GTQ', minimumFractionDigits: 2
+  }).format(Number(value || 0));
+
+  const calculateTotal = () => [...itemsBody.querySelectorAll('[data-quote-item]')]
+    .reduce((sum, row) => sum + Number(row.querySelector('[data-item-quantity]').value || 0) * Number(row.querySelector('[data-item-price]').value || 0), 0);
+
+  const updatePreview = () => {
+    const previewTitle = concept.value.trim() || 'Nueva cotización';
+    const rows = [...itemsBody.querySelectorAll('[data-quote-item]')];
+    const lineSummary = rows.map((row) => {
+      const name = row.querySelector('[data-item-description]').value.trim() || 'Partida sin descripción';
+      const quantity = Number(row.querySelector('[data-item-quantity]').value || 0);
+      const price = Number(row.querySelector('[data-item-price]').value || 0);
+      return `<div class="quote-preview__line"><span>${escapeHtml(name)} <small>× ${quantity.toLocaleString('es-GT', { maximumFractionDigits: 2 })}</small></span><strong>${formatQuote(quantity * price)}</strong></div>`;
+    }).join('');
+    preview.innerHTML = `<div class="quote-preview__top"><span>Cotización para</span><strong>${escapeHtml(clientName.value.trim() || 'Cliente')}</strong></div><h2>${escapeHtml(previewTitle)}</h2><p class="quote-preview__email">${escapeHtml(recipient.value.trim() || 'Sin indicar')}</p><div class="quote-preview__lines">${lineSummary || '<p class="texto-suave">Agregue partidas para calcular el total.</p>'}</div><div class="quote-preview__total"><span>Total</span><strong>${formatQuote(calculateTotal())}</strong></div>`;
+    if (!subject.value.trim() && concept.value.trim()) subject.value = `Cotización: ${concept.value.trim()}`;
+  };
+
+  const addItemRow = () => {
+    const row = document.createElement('tr');
+    row.dataset.quoteItem = 'true';
+    const materialOptions = materials.map((material) => {
+      const id = material.id_material ?? material.id;
+      return `<option value="${escapeAttribute(id)}">${escapeHtml(material.codigo ? `${material.codigo} · ${material.nombre}` : material.nombre)}</option>`;
+    }).join('');
+    row.innerHTML = `<td><select data-item-kind aria-label="Tipo de partida"><option>Material</option><option>Mano de obra</option><option>Herramienta</option><option>Otro</option></select></td><td><select data-item-catalog aria-label="Elegir del catálogo"><option value="">Manual</option>${materialOptions}</select><input data-item-description type="text" maxlength="150" placeholder="Descripción de la partida" required /></td><td><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td><input data-item-unit type="text" maxlength="30" value="unidad" aria-label="Unidad" required /></td><td><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="0.00" aria-label="Precio unitario" required /></td><td class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
+    itemsBody.appendChild(row);
+    return row;
+  };
+
+  const updateLineTotals = () => {
+    itemsBody.querySelectorAll('[data-quote-item]').forEach((row) => {
+      const quantity = Number(row.querySelector('[data-item-quantity]').value || 0);
+      const price = Number(row.querySelector('[data-item-price]').value || 0);
+      row.querySelector('[data-item-subtotal]').textContent = formatQuote(quantity * price);
+    });
+    updatePreview();
+  };
+
+  const setCatalogMaterial = (row, id) => {
+    const material = materials.find((item) => String(item.id_material ?? item.id) === id);
+    if (!material) return;
+    const normalizedType = String(material.tipo || material.categoria || '').toLowerCase();
+    const reusable = String(material.modo_uso || '').toLowerCase() === 'reutilizable';
+    const kind = normalizedType.includes('mano de obra') ? 'Mano de obra' : reusable ? 'Herramienta' : 'Material';
+    const price = kind === 'Mano de obra'
+      ? Number(material.precio_venta || material.precio_unitario || material.costo || 0)
+      : reusable
+        ? Number(material.precio_uso || material.precio_venta || material.precio_unitario || material.costo || 0)
+        : Number(material.precio_venta || material.precio_unitario || material.costo || 0);
+    row.querySelector('[data-item-description]').value = material.nombre || '';
+    row.querySelector('[data-item-kind]').value = kind;
+    row.querySelector('[data-item-unit]').value = material.unidad || material.unidad_medida || (kind === 'Mano de obra' ? 'm²' : 'unidad');
+    row.querySelector('[data-item-price]').value = price.toFixed(2);
+    updateLineTotals();
+  };
+
+  [clientName, recipient, concept].forEach((field) => {
+    field.addEventListener('input', updatePreview);
+  });
+  concept.addEventListener('input', () => {
+    if (!subject.dataset.userEdited) subject.value = concept.value.trim() ? `Cotización: ${concept.value.trim()}` : '';
+  });
+  subject.addEventListener('input', () => { subject.dataset.userEdited = 'true'; });
+  form.querySelector('[data-add-quote-item]').addEventListener('click', () => {
+    if (itemsBody.querySelectorAll('[data-quote-item]').length >= 50) {
+      showToast('La cotización admite hasta 50 partidas.', 'error');
+      return;
+    }
+    addItemRow();
+  });
+  itemsBody.addEventListener('input', updateLineTotals);
+  itemsBody.addEventListener('change', (event) => {
+    if (event.target.matches('[data-item-catalog]')) setCatalogMaterial(event.target.closest('[data-quote-item]'), event.target.value);
+    else updateLineTotals();
+  });
+  itemsBody.addEventListener('click', (event) => {
+    const removeButton = event.target.closest('[data-remove-quote-item]');
+    if (!removeButton) return;
+    if (itemsBody.querySelectorAll('[data-quote-item]').length === 1) {
+      showToast('La cotización debe incluir al menos una partida.', 'error');
+      return;
+    }
+    removeButton.closest('[data-quote-item]').remove();
+    updateLineTotals();
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    submit.disabled = true;
+    submit.textContent = 'Enviando...';
+    try {
+      const result = await apiRequest('cotizaciones/enviar', {
+        method: 'POST',
+        body: {
+          cliente_nombre: clientName.value.trim(),
+          destinatario: recipient.value.trim(),
+          concepto: concept.value.trim(),
+          items: [...itemsBody.querySelectorAll('[data-quote-item]')].map((row) => ({
+            tipo: row.querySelector('[data-item-kind]').value,
+            descripcion: row.querySelector('[data-item-description]').value.trim(),
+            cantidad: row.querySelector('[data-item-quantity]').value,
+            unidad: row.querySelector('[data-item-unit]').value.trim(),
+            precio_unitario: row.querySelector('[data-item-price]').value
+          })),
+          asunto: subject.value.trim(),
+          mensaje: message.value.trim()
+        }
+      });
+      showToast(result?.message || 'Cotización enviada correctamente.', 'success');
+    } catch (error) {
+      showToast(error.message || 'No se pudo enviar la cotización.', 'error');
+    } finally {
+      submit.disabled = false;
+      submit.textContent = 'Enviar cotización';
+    }
+  });
+
+  addItemRow();
+  try {
+    const response = await apiRequest('materiales');
+    const catalog = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
+    materials.push(...catalog.filter((material) => String(material.estado || '').toLowerCase() !== 'archivado'));
+    const optionMarkup = materials.map((material) => {
+      const id = material.id_material ?? material.id;
+      return `<option value="${escapeAttribute(id)}">${escapeHtml(material.codigo ? `${material.codigo} · ${material.nombre}` : material.nombre)}</option>`;
+    }).join('');
+    itemsBody.querySelectorAll('[data-item-catalog]').forEach((select) => {
+      select.insertAdjacentHTML('beforeend', optionMarkup);
+    });
+  } catch (error) {
+    console.warn('No se pudo cargar el catálogo de materiales para cotizaciones:', error.message);
+  }
+  updatePreview();
 }
 
 function showAccessDeniedModal() {
