@@ -4937,11 +4937,30 @@ td {
 }
 
 @media (max-width: 520px) {
+  .pagina-cotizaciones .quote-items-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: visible !important;
+  }
+  .pagina-cotizaciones .quote-items-table,
+  .pagina-cotizaciones .quote-items-table tbody {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0 !important;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
   .pagina-cotizaciones .quote-items-table tbody { display: grid; gap: 18px; }
   .pagina-cotizaciones .quote-items-table tr {
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    max-width: 100%;
     gap: 14px;
     padding: 0;
     border: 0 !important;
@@ -4951,12 +4970,25 @@ td {
   }
   .pagina-cotizaciones .quote-items-table td {
     display: flex;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
     flex-direction: column;
     gap: 7px;
     padding: 0 !important;
     border: 0 !important;
     background: transparent !important;
+    overflow: visible;
+  }
+  .pagina-cotizaciones .quote-items-table td::before {
+    display: block;
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+    transform: none;
+    text-indent: 0;
+    white-space: normal;
   }
   .pagina-cotizaciones .quote-items-table td:nth-child(1),
   .pagina-cotizaciones .quote-items-table td:nth-child(2),
@@ -4967,6 +4999,7 @@ td {
   }
   .pagina-cotizaciones .quote-items-table td:nth-child(6) {
     grid-column: 1 / -1;
+    width: 100%;
     min-height: 82px;
     align-items: flex-start;
     justify-content: flex-start;
@@ -4986,6 +5019,7 @@ td {
     display: block;
     width: 100% !important;
     max-width: none;
+    box-sizing: border-box;
     min-height: 52px;
     padding: 10px 14px;
     border: 1px solid #d4dfeb;
