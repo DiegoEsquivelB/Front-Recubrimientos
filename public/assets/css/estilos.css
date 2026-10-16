@@ -4749,6 +4749,7 @@ td {
 @media (max-width: 900px) { .pagina-cotizaciones .quote-layout { grid-template-columns: 1fr; } }
 
 .pagina-cotizaciones .quote-items-section { margin: 22px 0; }
+.pagina-cotizaciones .quote-floating-add { display: none; }
 .pagina-cotizaciones .quote-entry-group + .quote-entry-group { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
 .pagina-cotizaciones .quote-area-field small { display: block; margin-top: 5px; color: var(--texto-suave); }
 .pagina-cotizaciones .quote-area-estimate { margin: 12px 0 20px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; background: var(--primary-soft); color: var(--ink); }
@@ -4851,6 +4852,9 @@ td {
   .pagina-cotizaciones .quote-line-remove { min-width: 38px; min-height: 38px; border-radius: 10px; background: #fff1ef; }
   .pagina-cotizaciones .quote-config-note { padding: 11px 12px; border-radius: 10px; background: #f5f8f9; font-size: .78rem; line-height: 1.5; }
   .pagina-cotizaciones .quote-form > [type="submit"] { width: 100%; min-height: 48px; }
+  .pagina-cotizaciones .quote-form { padding-bottom: 88px; }
+  .pagina-cotizaciones .quote-floating-add { display: flex; position: fixed; z-index: 8; right: max(14px, env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); left: max(14px, env(safe-area-inset-left)); width: auto; min-height: 50px; justify-content: center; border-radius: 14px; box-shadow: 0 8px 24px rgba(25, 48, 63, .22); }
+  .pagina-cotizaciones .quote-floating-add[hidden] { display: none; }
   .pagina-cotizaciones .quote-preview-panel .encabezado-panel h2 { font-size: 1.05rem; }
   .pagina-cotizaciones .quote-preview__total { padding: 14px; }
   .pagina-cotizaciones .quote-preview__total strong { font-size: 1.3rem; }

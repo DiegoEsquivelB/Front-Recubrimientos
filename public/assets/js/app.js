@@ -402,6 +402,12 @@ async function setupQuoteModule() {
   const materials = [];
   const preview = document.getElementById('cotizacion-preview');
   const submit = form.querySelector('[type="submit"]');
+  const floatingAddButton = form.querySelector('[data-quote-floating-add]');
+  if (floatingAddButton && 'IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => {
+      floatingAddButton.hidden = entry.isIntersecting;
+    }, { threshold: 0.1 }).observe(submit);
+  }
 
   const formatQuote = (value) => new Intl.NumberFormat('es-GT', {
     style: 'currency', currency: 'GTQ', minimumFractionDigits: 2
