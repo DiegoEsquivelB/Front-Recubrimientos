@@ -412,7 +412,6 @@ async function setupQuoteModule() {
   const formatQuote = (value) => new Intl.NumberFormat('es-GT', {
     style: 'currency', currency: 'GTQ', minimumFractionDigits: 2
   }).format(Number(value || 0));
-
   const calculateTotal = () => allQuoteRows()
     .reduce((sum, row) => sum + Number(row.querySelector('[data-item-quantity]').value || 0) * Number(row.querySelector('[data-item-price]').value || 0), 0);
 
@@ -473,9 +472,9 @@ async function setupQuoteModule() {
     }
     const estimates = paints.map(({ row, material }) => {
       const yieldPerGallon = Number(material.rendimiento_m2_gal || material.rendimiento);
-      const gallons = area / yieldPerGallon;
-      if (updateQuantities) row.querySelector('[data-item-quantity]').value = gallons.toFixed(2);
-      return `${escapeHtml(material.nombre)}: ${gallons.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${escapeHtml(material.unidad || 'galón')}`;
+      const gallons = Math.ceil(area / yieldPerGallon);
+      if (updateQuantities) row.querySelector('[data-item-quantity]').value = String(gallons);
+      return `${escapeHtml(material.nombre)}: ${gallons.toLocaleString('es-GT', { maximumFractionDigits: 0 })} ${escapeHtml(material.unidad || 'galón')}`;
     });
     areaEstimate.innerHTML = `<strong>Estimado de pintura:</strong> ${estimates.join(' · ')} <small>(área ÷ rendimiento registrado)</small>`;
   };
@@ -484,7 +483,7 @@ async function setupQuoteModule() {
     const row = document.createElement('tr');
     row.dataset.quoteItem = 'true';
     const kinds = kind === 'Mano de obra' ? ['Mano de obra'] : ['Material', 'Herramienta'];
-    row.innerHTML = `<td data-label="Tipo"><select data-item-kind aria-label="Tipo de partida">${kinds.map((option) => `<option>${option}</option>`).join('')}</select></td><td data-label="Artículo o servicio"><select data-item-catalog aria-label="Elegir del catálogo" required><option value="">Seleccione un artículo</option></select></td><td data-label="Cantidad"><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td data-label="Unidad"><input data-item-unit type="text" aria-label="Unidad (del catálogo)" placeholder="—" readonly /></td><td data-label="Precio unitario (Q)"><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="—" aria-label="Precio unitario (del catálogo)" readonly /></td><td data-label="Subtotal" class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td data-label="Quitar" class="quote-line-remove-cell"><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
+    row.innerHTML = `<td data-label="Tipo"><select data-item-kind aria-label="Tipo de partida">${kinds.map((option) => `<option>${option}</option>`).join('')}</select></td><td data-label="Artículo o servicio"><select data-item-catalog aria-label="Elegir del catálogo" required><option value="">Seleccione un artículo</option></select></td><td data-label="Cantidad"><input data-item-quantity type="number" min="1" max="1000000" step="1" value="1" aria-label="Cantidad (solo números enteros)" required /></td><td data-label="Unidad"><input data-item-unit type="text" aria-label="Unidad (del catálogo)" placeholder="—" readonly /></td><td data-label="Precio unitario (Q)"><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="—" aria-label="Precio unitario (del catálogo)" readonly /></td><td data-label="Subtotal" class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td data-label="Quitar" class="quote-line-remove-cell"><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
     row.querySelector('[data-item-kind]').value = kind;
     itemsBody.appendChild(row);
     lockCatalogFields(row);
@@ -536,7 +535,14 @@ async function setupQuoteModule() {
     if (!subject.dataset.userEdited) subject.value = concept.value.trim() ? `Cotización: ${concept.value.trim()}` : '';
   });
   subject.addEventListener('input', () => { subject.dataset.userEdited = 'true'; });
-  itemsContainer.addEventListener('input', updateLineTotals);
+  itemsContainer.addEventListener('input', (event) => {
+    if (event.target.matches('[data-item-quantity]')) {
+      const quantity = Number(event.target.value);
+      event.target.setCustomValidity(Number.isInteger(quantity) && quantity >= 1 && quantity <= 1000000
+        ? '' : 'Ingrese una cantidad entera entre 1 y 1,000,000.');
+    }
+    updateLineTotals();
+  });
   itemsContainer.addEventListener('change', (event) => {
     if (event.target.matches('[data-item-catalog]')) {
       setCatalogMaterial(event.target.closest('[data-quote-item]'), event.target.value);
@@ -594,7 +600,7 @@ async function setupQuoteModule() {
           items: allQuoteRows().map((row) => ({
             tipo: row.querySelector('[data-item-kind]').value,
             descripcion: getCatalogMaterial(row)?.nombre || '',
-            cantidad: row.querySelector('[data-item-quantity]').value,
+            cantidad: Number(row.querySelector('[data-item-quantity]').value),
             unidad: row.querySelector('[data-item-unit]').value.trim(),
             precio_unitario: row.querySelector('[data-item-price]').value
           })),
