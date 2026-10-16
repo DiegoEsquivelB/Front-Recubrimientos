@@ -508,6 +508,20 @@ async function setupQuoteModule() {
     laborButton.disabled = hasLabor;
   };
 
+  const clearQuoteForm = () => {
+    const materialsBody = itemsContainer.querySelector('[data-quote-items="materiales"]');
+    let firstMaterialRow = materialsBody.querySelector('[data-quote-item]');
+    if (!firstMaterialRow) firstMaterialRow = addItemRow('Material', materialsBody);
+    allQuoteRows().forEach((row) => {
+      if (row !== firstMaterialRow) row.remove();
+    });
+    form.reset();
+    refreshCatalogOptions(firstMaterialRow);
+    updateLaborButton();
+    updatePaintEstimate();
+    updateLineTotals();
+  };
+
   const setCatalogMaterial = (row, id) => {
     const material = materials.find((item) => String(item.id_material ?? item.id) === id);
     if (!material) return;
@@ -609,6 +623,7 @@ async function setupQuoteModule() {
         }
       });
       showToast(result?.message || 'Cotización enviada correctamente.', 'success');
+      clearQuoteForm();
     } catch (error) {
       showToast(error.message || 'No se pudo enviar la cotización.', 'error');
     } finally {
