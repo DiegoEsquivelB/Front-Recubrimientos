@@ -2963,6 +2963,11 @@ td {
   text-decoration: underline;
 }
 
+.tarjeta-login[data-password-reset-request] > .boton-principal,
+.tarjeta-login[data-password-reset-confirm] > .boton-principal {
+  margin-top: 18px;
+}
+
 .error-login {
   background: rgba(217, 83, 79, 0.08);
   border: 1px solid rgba(217, 83, 79, 0.2);
