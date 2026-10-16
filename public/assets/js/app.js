@@ -597,6 +597,19 @@ async function setupQuoteModule() {
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    const selectedItems = allQuoteRows().filter((row) => row.querySelector('[data-item-catalog]').value);
+    const hasMaterial = selectedItems.some((row) => row.querySelector('[data-item-kind]').value === 'Material');
+    const hasLabor = selectedItems.some((row) => row.querySelector('[data-item-kind]').value === 'Mano de obra');
+    if (!hasMaterial || !hasLabor) {
+      showToast('Agregue al menos un material y seleccione una mano de obra.', 'error');
+      const missingRow = allQuoteRows().find((row) => {
+        const kind = row.querySelector('[data-item-kind]').value;
+        return !row.querySelector('[data-item-catalog]').value
+          && ((!hasMaterial && kind !== 'Mano de obra') || (!hasLabor && kind === 'Mano de obra'));
+      });
+      missingRow?.querySelector('[data-item-catalog]').focus();
+      return;
+    }
     if (!form.checkValidity()) {
       form.reportValidity();
       return;
