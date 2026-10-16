@@ -448,6 +448,15 @@ async function setupQuoteModule() {
     }
   };
 
+  const enableQuoteEdits = (row) => {
+    row.querySelectorAll('[data-item-description], [data-item-unit], [data-item-price]').forEach((field) => {
+      field.disabled = false;
+      field.readOnly = false;
+      field.removeAttribute('readonly');
+      field.setAttribute('aria-readonly', 'false');
+    });
+  };
+
   const getCatalogMaterial = (row) => materials.find((item) => String(item.id_material ?? item.id) === row.querySelector('[data-item-catalog]').value);
   const updatePaintEstimate = (updateQuantities = false) => {
     const area = Number(areaInput.value || 0);
@@ -473,6 +482,7 @@ async function setupQuoteModule() {
     row.innerHTML = `<td data-label="Tipo"><select data-item-kind aria-label="Tipo de partida">${kinds.map((option) => `<option>${option}</option>`).join('')}</select></td><td data-label="Artículo o servicio"><select data-item-catalog aria-label="Elegir del catálogo"><option value="">Manual</option></select><input data-item-description type="text" maxlength="150" placeholder="Descripción de la partida" required /></td><td data-label="Cantidad"><input data-item-quantity type="number" min="0.01" max="1000000" step="0.01" value="1" aria-label="Cantidad" required /></td><td data-label="Unidad"><input data-item-unit type="text" maxlength="30" value="unidad" aria-label="Unidad" required /></td><td data-label="Precio unitario (Q)"><input data-item-price type="number" min="0" max="999999999" step="0.01" placeholder="0.00" aria-label="Precio unitario" required /></td><td data-label="Subtotal" class="quote-line-subtotal" data-item-subtotal>Q 0.00</td><td data-label="Quitar" class="quote-line-remove-cell"><button class="boton boton-icono quote-line-remove" type="button" data-remove-quote-item aria-label="Quitar partida">×</button></td>`;
     row.querySelector('[data-item-kind]').value = kind;
     itemsBody.appendChild(row);
+    enableQuoteEdits(row);
     refreshCatalogOptions(row);
     return row;
   };
@@ -497,6 +507,7 @@ async function setupQuoteModule() {
   const setCatalogMaterial = (row, id) => {
     const material = materials.find((item) => String(item.id_material ?? item.id) === id);
     if (!material) return;
+    enableQuoteEdits(row);
     const kind = getMaterialKind(material);
     const reusable = String(material.modo_uso || '').toLowerCase() === 'reutilizable';
     const price = kind === 'Mano de obra'
@@ -597,7 +608,10 @@ async function setupQuoteModule() {
     }
   });
 
-  allQuoteRows().forEach((row) => refreshCatalogOptions(row));
+  allQuoteRows().forEach((row) => {
+    enableQuoteEdits(row);
+    refreshCatalogOptions(row);
+  });
   updateLaborButton();
   try {
     const response = await apiRequest('materiales');
