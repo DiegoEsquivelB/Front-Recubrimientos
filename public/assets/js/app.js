@@ -1574,7 +1574,9 @@ async function apiRequest(endpoint, options = {}) {
       const apiError = new Error(message);
       apiError.response = payload;
       apiError.status = response.status;
-      if (response.status === 401 && !window.location.pathname.endsWith('login.html')) {
+      const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+      const publicAuthPages = new Set(['login.html', 'recuperar-contrasena.html', 'restablecer-contrasena.html']);
+      if (response.status === 401 && !publicAuthPages.has(currentPage)) {
         clearLegacyAuthStorage();
         window.location.href = window.location.pathname.includes('/modulos/') ? '../login.html' : 'login.html';
       }
