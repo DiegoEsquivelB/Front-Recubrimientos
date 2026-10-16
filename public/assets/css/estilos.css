@@ -4717,8 +4717,9 @@ td {
   .pagina-finanzas .tabla-finanzas tbody tr:not(.empty-table) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 8px; background: #fff; border: 1px solid #dfe7eb; border-radius: 14px; box-shadow: 0 5px 16px rgba(25, 48, 63, .06); }
   .pagina-finanzas .tabla-finanzas tbody td { gap: 5px; padding: 9px; font-size: .88rem; }
   .pagina-finanzas .tabla-finanzas tbody td::before { font-size: .68rem; letter-spacing: .035em; }
-  .pagina-finanzas .tabla-finanzas tbody .finance-project { grid-column: 1 / -1; padding-bottom: 11px; border-bottom: 1px solid var(--line); }
-  .pagina-finanzas .finance-project strong { font-size: 1rem; }
+  .pagina-finanzas .tabla-finanzas tbody .finance-project { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); gap: 4px; padding-bottom: 0; border-bottom: 0; }
+  .pagina-finanzas .finance-project strong { display: block; margin-top: 1px; font-size: 1rem; line-height: 1.4; }
+  .pagina-finanzas .finance-project .finance-client { margin: 2px 0 0; padding: 0 0 12px; border-bottom: 1px solid var(--line); line-height: 1.5; }
   .pagina-finanzas .tabla-finanzas tbody .finance-state { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
   .pagina-finanzas .tabla-finanzas tbody .finance-state::before { margin-right: auto; }
   .pagina-finanzas .tabla-finanzas tbody .finance-income,
