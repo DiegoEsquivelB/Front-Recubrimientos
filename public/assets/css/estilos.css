@@ -4678,3 +4678,15 @@ td {
 
 
 
+
+/* Módulo financiero */
+.pagina-finanzas .finance-metrics .tarjeta-metrica strong { font-size: clamp(1.2rem, 2vw, 1.75rem); }
+.pagina-finanzas .finance-projects-panel { margin-top: 24px; }
+.pagina-finanzas .tabla-finanzas { width: 100%; min-width: 760px; border-collapse: collapse; }
+.pagina-finanzas .tabla-finanzas th, .pagina-finanzas .tabla-finanzas td { padding: 14px 16px; border-bottom: 1px solid var(--line); text-align: left; }
+.pagina-finanzas .tabla-finanzas th { color: var(--texto-suave); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.pagina-finanzas .tabla-finanzas td { color: var(--ink); }
+.pagina-finanzas .finance-client { display: block; margin-top: 4px; color: var(--texto-suave); }
+.pagina-finanzas .finance-note { margin: 14px 16px 2px; color: var(--texto-suave); font-size: .85rem; }
+.pagina-finanzas .finance-error { padding: 24px; }
+.pagina-finanzas .finance-error h2 { font-size: 1.1rem; }

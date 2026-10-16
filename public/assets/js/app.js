@@ -205,6 +205,7 @@ if (typeof document !== 'undefined') {
     setReportForm();
     setDefaultDate();
     loadDashboardData();
+    loadFinanceSummary();
     loadRecentProjects();
     loadCrudLists();
     setupClienteModal();
@@ -285,6 +286,54 @@ function setCurrentDate() {
   }).format(new Date());
 }
 
+async function loadFinanceSummary() {
+  const container = document.querySelector('[data-finance-summary]');
+  if (!container) return;
+
+  const money = (value) => new Intl.NumberFormat('es-GT', {
+    style: 'currency', currency: 'GTQ', minimumFractionDigits: 2
+  }).format(Number(value || 0));
+
+  try {
+    const data = await apiRequest('finanzas/resumen');
+    const summary = data?.resumen || {};
+    const projects = Array.isArray(data?.proyectos) ? data.proyectos : [];
+    const utility = Number(summary.utilidad_estimada || 0);
+    const margin = Number(summary.ingresos_estimados || 0) > 0
+      ? utility / Number(summary.ingresos_estimados) * 100
+      : 0;
+
+    document.getElementById('finanzas-ingresos').textContent = money(summary.ingresos_estimados);
+    document.getElementById('finanzas-costos').textContent = money(summary.costos_estimados);
+    document.getElementById('finanzas-utilidad').textContent = money(utility);
+    document.getElementById('finanzas-margen').textContent = `${margin.toLocaleString('es-GT', { maximumFractionDigits: 1 })}% de margen estimado`;
+    document.getElementById('finanzas-proyectos').textContent = `${summary.proyectos || 0} proyectos activos`;
+
+    const tableBody = document.getElementById('tabla-finanzas-proyectos');
+    if (!projects.length) {
+      tableBody.innerHTML = '<tr><td colspan="5">No hay proyectos activos para mostrar.</td></tr>';
+      return;
+    }
+
+    const relevantProjects = [...projects]
+      .sort((a, b) => Number(a.utilidad_estimada || 0) - Number(b.utilidad_estimada || 0))
+      .slice(0, 5);
+    tableBody.innerHTML = relevantProjects.map((project) => {
+      const projectUtility = Number(project.utilidad_estimada || 0);
+      const badge = projectUtility < 0 ? 'badge--danger' : 'badge--success';
+      return `<tr>
+        <td><strong>${escapeHtml(project.nombre || 'Proyecto sin nombre')}</strong><small class="finance-client">${escapeHtml(project.cliente_nombre || 'Sin cliente')}</small></td>
+        <td>${escapeHtml(project.estado || 'Pendiente')}</td>
+        <td>${money(project.ingreso_estimado)}</td>
+        <td>${money(project.costo_estimado)}</td>
+        <td><span class="badge ${badge}">${money(projectUtility)}</span></td>
+      </tr>`;
+    }).join('');
+  } catch (error) {
+    container.innerHTML = `<article class="panel finance-error"><h2>No se pudo cargar el resumen</h2><p>${escapeHtml(error.message || 'Intente nuevamente más tarde.')}</p></article>`;
+  }
+}
+
 function setActiveNavigation() {
   const page = window.location.pathname.split('/').pop() || 'index.html';
   document.querySelectorAll('.enlace-menu').forEach((link) => {
@@ -312,7 +361,7 @@ async function applyRoleAccess() {
     });
     document.querySelectorAll('.enlace-menu, .acciones-rapidas a').forEach((link) => {
       const href = link.getAttribute('href') || '';
-      if (!isAdministrator && /(?:^|\/)usuarios\.html(?:$|#|\?)/i.test(href) && !link.dataset.accessChecked) {
+      if (!isAdministrator && /(?:^|\/)(?:usuarios|finanzas)\.html(?:$|#|\?)/i.test(href) && !link.dataset.accessChecked) {
         link.dataset.accessChecked = 'true';
         link.addEventListener('click', (event) => {
           event.preventDefault();
@@ -327,8 +376,8 @@ async function applyRoleAccess() {
 
   const currentPage = window.location.pathname.split('/').pop() || 'index.html';
   const isAdministrator = String((currentUser || usuarioActual)?.rol || '').trim().toLowerCase() === 'administrador';
-  if (!isAdministrator && currentPage.toLowerCase() === 'usuarios.html') {
-    showToast('No tiene permisos para acceder al módulo de usuarios.', 'error');
+  if (!isAdministrator && ['usuarios.html', 'finanzas.html'].includes(currentPage.toLowerCase())) {
+    showToast('No tiene permisos para acceder a este módulo.', 'error');
     window.setTimeout(() => {
       window.location.href = window.location.pathname.includes('/modulos/') ? '../index.html' : 'index.html';
     }, 300);
@@ -348,7 +397,7 @@ function showAccessDeniedModal() {
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-labelledby', 'titulo-acceso-denegado');
-  modal.innerHTML = `<div class="modal-acceso-denegado__contenido"><button type="button" class="modal-acceso-denegado__cerrar" aria-label="Cerrar">×</button><span class="modal-acceso-denegado__icono">!</span><h2 id="titulo-acceso-denegado">No tienes acceso</h2><p>Tu rol no permite ingresar al módulo de usuarios.</p><button type="button" class="boton boton-principal modal-acceso-denegado__aceptar">Entendido</button></div>`;
+  modal.innerHTML = `<div class="modal-acceso-denegado__contenido"><button type="button" class="modal-acceso-denegado__cerrar" aria-label="Cerrar">×</button><span class="modal-acceso-denegado__icono">!</span><h2 id="titulo-acceso-denegado">No tienes acceso</h2><p>Tu rol no permite ingresar a este módulo.</p><button type="button" class="boton boton-principal modal-acceso-denegado__aceptar">Entendido</button></div>`;
   document.body.appendChild(modal);
 
   const closeModal = () => {
